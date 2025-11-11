@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:ui": "playwright test",
     "fallback:sync": "node scripts/extract-fallback-copy.mjs",
-    "ci-check": "npm run lint && npm run type-check && npm run build"
+    "ci-check": "npm run lint && npm run type-check && npm run build",
+    "codex:publish": "node scripts/create-pr.mjs"
   },
   "dependencies": {
     "@sendgrid/mail": "^7.7.0",

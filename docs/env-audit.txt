@@ -37,4 +37,16 @@ This document enumerates every environment variable reference in the codebase an
 ## Testing & Tooling
 - `PLAYWRIGHT_TEST_BASE_URL` — Overrides the base URL for Playwright E2E tests.
 
+## GitHub Automation
+- `GITHUB_API_URL` (required) — Base URL for GitHub REST requests used by `scripts/create-pr.mjs`. The script aborts when the value is missing or a placeholder.
+- `GITHUB_TOKEN` (required) — Personal access token or workflow token for authenticated GitHub API calls.
+- `GIT_REMOTE_NAME` (required) — Remote alias pushed by `scripts/create-pr.mjs`. Must point to the upstream repository; placeholder names are rejected.
+- `GIT_REPO_NAME` (required) — Repository slug used when opening or updating pull requests.
+- `GIT_REPO_OWNER` (required) — Repository owner or organization in GitHub.
+- `PR_BASE` (required) — Base branch name targeted by the pull request.
+- `PR_BODY` (required) — Markdown body supplied to GitHub when creating or updating the PR.
+- `PR_HEAD` (required) — Head branch name pushed to GitHub.
+- `PR_TITLE` (required) — Title supplied to the GitHub pull request.
+- `PR_DRAFT` (optional) — When set to `true`, the pull request is marked as a draft.
+
 Each variable is now validated or logged with explicit diagnostics so that missing values are caught immediately during runtime.
