@@ -231,13 +231,14 @@ export async function POST(req: NextRequest) {
   primeStorageContextFromHeaders(req.headers)
   const url = new URL(req.url)
   const providerQuery = url.searchParams.get('provider')
-  const providerSecret = getSecret('PROVIDER')?.trim() ?? ''
+  const providerEnv = getSecret('PROVIDER')
+  const providerSecret = providerEnv?.trim() ?? ''
   const providerCandidate = providerQuery && providerQuery.trim().length ? providerQuery.trim() : providerSecret
   const provider = providerCandidate.trim()
 
   logDiagnostic('log', 'ask-audio:provider:resolve', {
     providerQuery: providerQuery ?? null,
-    providerEnv: providerEnv || null,
+    providerEnv: providerSecret || null,
     resolvedProvider: provider || null,
     hypotheses: providerHypotheses,
   })
