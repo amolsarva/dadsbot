@@ -8,15 +8,52 @@ export type RecordResult = {
   stopReason: string
 }
 
-async function getModule(): Promise<any> {
-  // Dynamic import so it only loads client-side
-  try {
-    // @ts-ignore
-    return await import('../src/lib/audio.js')
-  } catch {
-    // @ts-ignore
-    return await import('../src/lib/audio')
+const audioBridgeTimestamp = () => new Date().toISOString()
+
+const formatAudioBridgeEnvSummary = () => ({
+  hasWindow: typeof window !== 'undefined',
+  nodeEnv: process.env.NODE_ENV ?? null,
+})
+
+const logAudioBridgeDiagnostic = (
+  level: 'log' | 'error',
+  step: string,
+  detail?: Record<string, unknown>,
+) => {
+  const payload = { envSummary: formatAudioBridgeEnvSummary(), ...(detail ?? {}) }
+  const prefix = `[diagnostic] ${audioBridgeTimestamp()} [lib/audio-bridge] ${step}`
+  if (level === 'error') {
+    console.error(prefix, payload)
+  } else {
+    console.log(prefix, payload)
   }
+}
+
+async function getModule(): Promise<any> {
+  const candidates = ['../src/lib/audio.js', '../src/lib/audio']
+  let lastError: unknown = null
+  for (const candidate of candidates) {
+    logAudioBridgeDiagnostic('log', 'attempt-import', { candidate })
+    try {
+      // @ts-ignore
+      const mod = await import(candidate)
+      logAudioBridgeDiagnostic('log', 'import-success', { candidate })
+      return mod
+    } catch (error) {
+      lastError = error
+      logAudioBridgeDiagnostic('error', 'import-failed', {
+        candidate,
+        error: error instanceof Error ? error.message : '__unknown__',
+      })
+    }
+  }
+
+  const errorMessage =
+    'Audio helpers unavailable after attempting legacy module imports. Verify build includes src/lib/audio.js.'
+  logAudioBridgeDiagnostic('error', 'import-exhausted', {
+    error: lastError instanceof Error ? lastError.message : '__unknown__',
+  })
+  throw new Error(errorMessage)
 }
 
 export async function calibrateRMS(seconds = 2.0): Promise<number> {

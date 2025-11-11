@@ -583,7 +583,6 @@ export async function GET(req: NextRequest) {
           error: 'Missing NETLIFY_BLOBS_TOKEN or site/store identifiers; skipping direct API checks.',
         })
       }
-    }
     } else {
       flowSteps.push({
         id: 'netlify_config',
