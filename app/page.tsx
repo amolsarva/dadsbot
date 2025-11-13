@@ -133,24 +133,6 @@ type NetworkSessionResult = {
   source: Extract<SessionInitSource, 'network'>
 }
 
-type IntroDebugPayload = {
-  hasPriorSessions?: boolean
-  sessionCount?: number
-  rememberedTitles?: string[]
-  rememberedDetails?: string[]
-  askedQuestionsPreview?: string[]
-  primerPreview?: string
-  fallbackQuestion?: string
-}
-
-type IntroResponse = {
-  ok?: boolean
-  message?: string
-  fallback?: boolean
-  reason?: string
-  debug?: IntroDebugPayload | null
-}
-
 type AskDebugMemory = {
   hasPriorSessions?: boolean
   hasCurrentConversation?: boolean
@@ -1727,96 +1709,189 @@ export function Home({ userHandle }: { userHandle?: string }) {
       const waitMs = INTRO_MIN_PREP_MS - elapsed
       if (waitMs > 0) {
         if (waitMs > 50) {
-          pushLog(`Intro ready. Waiting ${waitMs}ms to finish memory sync…`)
+          pushLog(`[diagnostic] Intro ready. Waiting ${waitMs}ms to finish memory sync…`)
         }
         await new Promise((resolve) => setTimeout(resolve, waitMs))
       }
     }
 
     let introMessage = ''
-    let introDebug: IntroDebugPayload | null = null
+    let introDebug: AskDebugPayload | null = null
+
+    const introEnv = {
+      nodeEnv:
+        typeof process !== 'undefined' && process.env && typeof process.env.NODE_ENV !== 'undefined'
+          ? process.env.NODE_ENV
+          : 'unknown',
+    }
+
+    const logIntroDiagnostic = (step: string, payload: Record<string, unknown> = {}) => {
+      const timestamp = new Date().toISOString()
+      console.log(`[diagnostic] ${timestamp} startSession:${step}`, {
+        env: introEnv,
+        sessionId,
+        ...payload,
+      })
+    }
 
     try {
       try {
         await ensureSessionRecorder()
-      } catch {
-        pushLog('Session recorder unavailable; proceeding without combined audio')
+      } catch (error) {
+        const recorderError = error instanceof Error ? error.message : 'unavailable'
+        logIntroDiagnostic('recorder:unavailable', { reason: recorderError })
+        pushLog(`[diagnostic] Session recorder unavailable; proceeding without combined audio`)
       }
 
-      const res = await fetch(`/api/session/${sessionId}/intro`, { method: 'POST' })
-      const json = (await res.json().catch(() => null)) as IntroResponse | null
-      if (!res.ok) {
-        const snippet = json ? truncateForLog(JSON.stringify(json), 200) : ''
-        const details: string[] = [`Status: ${res.status}`]
-        if (snippet) {
-          details.push(`Body: ${snippet}`)
+      logIntroDiagnostic('intro-request:begin')
+      const introRes = await fetch('/api/ask-audio', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ sessionId, turn: 0, text: '' }),
+      })
+      const rawIntro = await introRes.text()
+      logIntroDiagnostic('intro-request:complete', {
+        status: introRes.status,
+        ok: introRes.ok,
+        responseSnippet: rawIntro ? truncateForLog(rawIntro, 180) : null,
+      })
+
+      if (!introRes.ok) {
+        const details: string[] = [`Status: ${introRes.status}`]
+        if (rawIntro) {
+          details.push(`Body: ${truncateForLog(rawIntro, 200)}`)
         }
+        logIntroDiagnostic('intro-request:failed', { details })
         recordFatal('Intro prompt request failed.', [
           ...details,
           'Run Diagnostics and resolve the failure before starting again.',
         ])
         return
       }
-      if (json?.fallback) {
-        const details: string[] = []
-        if (json.reason) {
-          details.push(`Reason: ${truncateForLog(json.reason, 160)}`)
+
+      let parsedIntro: AskResponse | null = null
+      if (rawIntro && rawIntro.trim().length) {
+        try {
+          parsedIntro = JSON.parse(rawIntro) as AskResponse
+        } catch (error) {
+          const parseError = error instanceof Error ? error.message : 'parse_failed'
+          logIntroDiagnostic('intro-response:parse-error', {
+            error: parseError,
+            snippet: truncateForLog(rawIntro, 200),
+          })
+          recordFatal('Intro prompt returned invalid JSON.', [
+            `Reason: ${truncateForLog(parseError, 160)}`,
+            'Resolve diagnostics before continuing.',
+          ])
+          return
         }
-        if (json?.debug?.fallbackQuestion) {
-          details.push(`Fallback question: ${truncateForLog(json.debug.fallbackQuestion, 160)}`)
-        }
-        details.push('Resolve diagnostics before continuing.')
-        recordFatal('Intro prompt returned fallback copy.', details)
+      }
+
+      if (!parsedIntro) {
+        logIntroDiagnostic('intro-response:empty')
+        recordFatal('Intro prompt returned an empty response.', [
+          'The assistant cannot begin without a scripted welcome.',
+        ])
         return
       }
-      if (!json || typeof json.message !== 'string' || !json.message.trim().length) {
+
+      if (parsedIntro.ok === false) {
+        const providerMessage =
+          typeof parsedIntro.reply === 'string' && parsedIntro.reply.trim().length
+            ? parsedIntro.reply.trim()
+            : 'ask-audio intro request failed'
+        const details: string[] = [
+          parsedIntro.debug?.providerStatus ? `Status: ${parsedIntro.debug.providerStatus}` : 'Status: unknown',
+          `Message: ${truncateForLog(providerMessage, 160)}`,
+        ]
+        if (parsedIntro.debug?.reason) {
+          details.push(`Reason: ${truncateForLog(parsedIntro.debug.reason, 160)}`)
+        }
+        logIntroDiagnostic('intro-response:error', { details })
+        recordFatal('Intro prompt request failed.', [
+          ...details,
+          'Run Diagnostics and resolve the failure before starting again.',
+        ])
+        return
+      }
+
+      const candidateMessage = typeof parsedIntro.reply === 'string' ? parsedIntro.reply.trim() : ''
+      if (!candidateMessage.length) {
+        logIntroDiagnostic('intro-response:missing-reply', {
+          debug: parsedIntro.debug || null,
+        })
         recordFatal('Intro prompt returned an empty message.', [
           'The assistant cannot begin without a scripted welcome.',
         ])
         return
       }
-      introMessage = json.message.trim()
-      introDebug = json.debug ?? null
 
-      if (introDebug) {
-        const parts: string[] = []
-        if (introDebug.hasPriorSessions) {
-          const sessionCount = (
-            typeof introDebug.sessionCount === 'number' ? introDebug.sessionCount : undefined
+      if (parsedIntro.debug?.usedFallback) {
+        const fallbackDetails: string[] = []
+        if (parsedIntro.debug?.reason) {
+          fallbackDetails.push(`Reason: ${truncateForLog(parsedIntro.debug.reason, 160)}`)
+        }
+        if (parsedIntro.debug?.providerResponseSnippet) {
+          fallbackDetails.push(
+            `Provider response: ${truncateForLog(parsedIntro.debug.providerResponseSnippet, 160)}`,
           )
-          parts.push(`history sessions: ${sessionCount ? String(sessionCount) : 'yes'}`)
+        }
+        logIntroDiagnostic('intro-response:fallback', { details: fallbackDetails })
+        recordFatal('Intro prompt returned fallback copy.', [
+          ...fallbackDetails,
+          'Resolve diagnostics before continuing.',
+        ])
+        return
+      }
+
+      introMessage = candidateMessage
+      introDebug = parsedIntro.debug ?? null
+
+      if (introDebug?.memory) {
+        const memory = introDebug.memory
+        const parts: string[] = []
+        if (memory.hasPriorSessions) {
+          parts.push('history sessions: yes')
         } else {
           parts.push('history sessions: none yet')
         }
-        const rememberedDetails = formatPreviewList(introDebug.rememberedDetails, 3)
+        const rememberedDetails = formatPreviewList(
+          memory.highlightDetail ? [memory.highlightDetail] : undefined,
+          3,
+        )
         if (rememberedDetails) {
           parts.push(`details: ${rememberedDetails}`)
         }
-        const rememberedTitles = formatPreviewList(introDebug.rememberedTitles, 3)
+        const rememberedTitles = formatPreviewList(memory.historyPreview ? [memory.historyPreview] : undefined, 1)
         if (rememberedTitles) {
-          parts.push(`titles: ${rememberedTitles}`)
+          parts.push(`history preview: ${rememberedTitles}`)
         }
         if (parts.length) {
-          pushLog(`[init] Memory snapshot → ${parts.join(' · ')}`)
+          pushLog(`[diagnostic] [init] Memory snapshot → ${parts.join(' · ')}`)
         }
-        if (introDebug.askedQuestionsPreview && introDebug.askedQuestionsPreview.length) {
-          const avoidList = formatPreviewList(introDebug.askedQuestionsPreview, 4)
+        if (memory.askedQuestionsPreview && memory.askedQuestionsPreview.length) {
+          const avoidList = formatPreviewList(memory.askedQuestionsPreview, 4)
           if (avoidList) {
-            pushLog(`[init] Avoid repeating → ${avoidList}`)
+            pushLog(`[diagnostic] [init] Avoid repeating → ${avoidList}`)
           }
         }
-        if (introDebug.primerPreview) {
-          pushLog(`[init] Primer preview → ${truncateForLog(introDebug.primerPreview, 180)}`)
-        }
-        if (introDebug.fallbackQuestion) {
-          pushLog(`[init] Primer fallback candidate → ${truncateForLog(introDebug.fallbackQuestion, 120)}`)
+        if (memory.primerPreview) {
+          pushLog(`[diagnostic] [init] Primer preview → ${truncateForLog(memory.primerPreview, 180)}`)
         }
       }
-      if (json?.reason) {
-        pushLog(`[init] Intro diagnostic note → ${truncateForLog(json.reason, 160)}`)
+      if (introDebug?.reason) {
+        pushLog(`[diagnostic] [init] Intro diagnostic note → ${truncateForLog(introDebug.reason, 160)}`)
+      }
+      if (introDebug?.providerError) {
+        pushLog(
+          `[diagnostic] [init] Intro provider status → ${
+            typeof introDebug.providerStatus === 'number' ? introDebug.providerStatus : 'unknown'
+          } ${truncateForLog(introDebug.providerError, 160)}`,
+        )
       }
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'Unknown intro error'
+      logIntroDiagnostic('intro:exception', { error: reason })
       recordFatal('Intro preparation failed.', [
         `Reason: ${truncateForLog(reason, 160)}`,
         'Check diagnostics and try again.',
@@ -1824,7 +1899,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
       return
     }
 
-    pushLog(`[init] Intro message (model): ${truncateForLog(introMessage, 220)}`)
+    pushLog(`[diagnostic] [init] Intro message (model): ${truncateForLog(introMessage, 220)}`)
     conversationRef.current.push({ role: 'assistant', text: introMessage })
 
     try {
@@ -1833,10 +1908,22 @@ export function Home({ userHandle }: { userHandle?: string }) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ role: 'assistant', text: introMessage }),
       })
-    } catch {}
+      console.log(`[diagnostic] ${new Date().toISOString()} startSession:turn-persist:success`, {
+        env: { nodeEnv: introEnv.nodeEnv },
+        sessionId,
+      })
+    } catch (error) {
+      const persistError = error instanceof Error ? error.message : 'unknown_turn_error'
+      console.error(`[diagnostic] ${new Date().toISOString()} startSession:turn-persist:error`, {
+        env: { nodeEnv: introEnv.nodeEnv },
+        sessionId,
+        error: persistError,
+      })
+      pushLog(`[diagnostic] Failed to persist intro turn → ${truncateForLog(persistError, 160)}`)
+    }
 
     await ensureIntroDelay()
-    pushLog('Intro message ready → playing')
+    pushLog('[diagnostic] Intro message ready → playing')
     let introPlaybackStarted = false
     updateMachineState('speakingPrep')
     try {

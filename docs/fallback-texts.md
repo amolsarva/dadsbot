@@ -49,26 +49,26 @@ This file is the single source of truth for every hard-coded fallback phrase in 
 - **Session title default:** "Session on {DATE}".  
   Modules: `lib/data.ts`, `app/api/history/route.ts`, `app/page.tsx`
 - **Intro greetings:**
-  - Returning with titles → "Welcome back—I'm keeping your stories about {TITLES} safe for you."  
-    Modules: `lib/data.ts`, `app/api/session/[id]/intro/route.ts`, `app/page.tsx`
-  - Returning default → "Welcome back—your archive is open and I'm ready whenever you are."  
-    Modules: `lib/data.ts`, `app/api/session/[id]/intro/route.ts`, `app/page.tsx`
-  - First-time greeting → "Hi, I'm Dad's Interview Bot. I'm here to help you capture the memories you want to keep."  
-    Modules: `lib/data.ts`, `app/api/session/[id]/intro/route.ts`, `app/page.tsx`
+  - Returning with titles → "Welcome back—I'm keeping your stories about {TITLES} safe for you."
+    Modules: `lib/data.ts`, `app/api/ask-audio/route.ts`, `app/page.tsx`
+  - Returning default → "Welcome back—your archive is open and I'm ready whenever you are."
+    Modules: `lib/data.ts`, `app/api/ask-audio/route.ts`, `app/page.tsx`
+  - First-time greeting → "Hi, I'm Dad's Interview Bot. I'm here to help you capture the memories you want to keep."
+    Modules: `lib/data.ts`, `app/api/ask-audio/route.ts`, `app/page.tsx`
 - **Intro reminders & promises:**
-  - Latest detail reminder → "The last thing you shared was about {DETAIL}."  
-    Modules: `lib/data.ts`, `app/api/session/[id]/intro/route.ts`
-  - No-detail promise → "I'll remember every detail you share from this moment on."  
-    Modules: `lib/data.ts`, `app/api/session/[id]/intro/route.ts`
+  - Latest detail reminder → "The last thing you shared was about {DETAIL}."
+    Modules: `lib/data.ts`, `app/api/ask-audio/route.ts`
+  - No-detail promise → "I'll remember every detail you share from this moment on."
+    Modules: `lib/data.ts`, `app/api/ask-audio/route.ts`
 - **Intro invitations & questions:**
-  - Returning invitation → "When you are ready, …"  
-    Modules: `lib/data.ts`, `app/api/session/[id]/intro/route.ts`
-  - First-session invitation → "When you feel ready, …"  
-    Modules: `lib/data.ts`, `app/api/session/[id]/intro/route.ts`
-  - Default continuation question → "Where would you like to pick up the story?"  
-    Modules: `lib/data.ts`, `app/api/session/[id]/intro/route.ts`
-  - First-session question → "Would you start by telling me the first memory you'd like to save together?"  
-    Modules: `lib/data.ts`, `app/api/session/[id]/intro/route.ts`
+  - Returning invitation → "When you are ready, …"
+    Modules: `lib/data.ts`, `app/api/ask-audio/route.ts`
+  - First-session invitation → "When you feel ready, …"
+    Modules: `lib/data.ts`, `app/api/ask-audio/route.ts`
+  - Default continuation question → "Where would you like to pick up the story?"
+    Modules: `lib/data.ts`, `app/api/ask-audio/route.ts`
+  - First-session question → "Would you start by telling me the first memory you'd like to save together?"
+    Modules: `lib/data.ts`, `app/api/ask-audio/route.ts`
   - Client intro fallback → "Welcome back. I remember everything you have trusted me with. Tell me one new detail you would like to explore now."  
     Modules: `app/page.tsx`
 - **Question prompts:**

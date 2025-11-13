@@ -10,7 +10,7 @@ Failure hypotheses to verify during debugging
 ---------------------------------------------
 1. **Supabase storage misconfiguration.** Without `STORAGE_MODE=supabase`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and a bucket name, all blob reads/writes in `lib/blob.ts` fail and trigger diagnostic throws. Expect early crashes in API routes when storage initialization cannot finish.
 2. **Missing default notification email.** `lib/default-notify-email.server.ts` throws if `DEFAULT_NOTIFY_EMAIL` is absent or uses the placeholder stub. Finalization and health checks depend on this, so deploys will hard-stop.
-3. **Unprovisioned AI credentials.** Both `/api/ask-audio` and `/api/session/[id]/intro` expect `GOOGLE_API_KEY` + `GOOGLE_MODEL`. Without them, Google calls fail and the handlers fall back to curated prompts only. `/api/diagnostics/google` exposes this quickly.
+3. **Unprovisioned AI credentials.** `/api/ask-audio` expects `GOOGLE_API_KEY` + `GOOGLE_MODEL`. Without them, Google calls fail and the handler falls back to curated prompts only. `/api/diagnostics/google` exposes this quickly.
 4. **Email provider unset.** `lib/email.ts` requires `MAIL_FROM` and a provider key (`RESEND_API_KEY` or `SENDGRID_API_KEY`). If absent, finalize returns `emailed: false` and surfaces theory-4 fox flags.
 5. **Environment variables missing.** The repository relies on environment variables (for example, those configured in Vercel project settings) for all secrets. Ensure required keys exist before building or the runtime will abort during initialization.
 
@@ -18,7 +18,7 @@ High-level execution flow
 -------------------------
 1. **Client state machine.** `app/page.tsx` mounts the recorder experience. It uses `lib/machine.ts` (a Zustand store) to manage button states, debug logs, and UI transitions. Audio capture runs through `lib/audio-bridge.ts` and `lib/session-recorder.ts` which wrap the Web Audio APIs, calibrate RMS baselines, and convert blobs to base64 for uploads.
 2. **Session creation & manifest caching.** `lib/data.ts` maintains in-memory `Session` objects, rebuilds Supabase manifests, and regenerates markdown primers. It hydrates from storage on demand and writes updates back via `putBlobFromBuffer`. Diagnostic logging now funnels through `logDataDiagnostic` so every failure records `[diagnostic]` payloads with environment summaries.
-3. **Question pipeline.** `/api/session/[id]/intro` fetches memory primers, builds a Google Gemini prompt, and handles fallback copy. `/api/ask-audio` receives user audio, transcribes or uses provided text, composes the memory prompt (history, asked questions, primer snippets), calls Gemini through `resolveGoogleModel`, and returns JSON replies. Fallback copy is used when Gemini errors.
+3. **Question pipeline.** `/api/ask-audio` receives user audio or empty intro triggers, composes the memory prompt (history, asked questions, primer snippets), calls Gemini through `resolveGoogleModel`, and returns JSON replies. Fallback copy is used when Gemini errors.
 4. **Turn persistence.** `/api/save-turn` and `/api/save-session-audio` (not shown above) stream turn manifests and audio assets into Supabase Storage. `lib/blob.ts` abstracts bucket resolution and emits diagnostics when API calls fail.
 5. **Finalize & recap.** `/api/finalize-session` aggregates turn manifests, synthesizes transcripts, uploads text/JSON artifacts, sends summary emails through `lib/email.ts`, and rewrites the handle-specific memory primer. The revised implementation logs every catch with `[diagnostic]` entries and env summaries.
 6. **Diagnostics surface.** `/api/diagnostics/*` endpoints expose blob env status, deploy metadata, provider checks, and captured fox flags. The `/diagnostics` page consumes these for operators.
@@ -32,14 +32,14 @@ Key modules & their roles
 - `lib/openaiTts.ts`: optional helper for OpenAI speech synthesis using `OPENAI_API_KEY`.
 - `lib/default-notify-email.*`: ensures a production email is injected both server-side and into the client bootstrap script for UI references.
 - `lib/foxes.ts` (not shown in detail): collects “fox” diagnostic events that flag theories for operators (e.g., missing transcripts, email failures).
-- `app/api/*`: route handlers for recording (`ask-audio`, `save-turn`, `save-session-audio`), session lifecycle (`session/start`, `session/[id]/intro`, `finalize-session`), diagnostics, blob proxying (`blob/[...path]`), and history retrieval.
+- `app/api/*`: route handlers for recording (`ask-audio`, `save-turn`, `save-session-audio`), session lifecycle (`session/start`, `finalize-session`), diagnostics, blob proxying (`blob/[...path]`), and history retrieval.
 - `docs/`: reference prompts (`interview-guide.md`), fallback copy, Supabase configuration notes, and other supporting material referenced throughout the code.
 
 Third-party dependencies & external services
 --------------------------------------------
 - **Vercel:** primary host and deployment metadata source. Environment variables surfaced by Vercel drive deploy IDs, environment context, and diagnostics summaries.
 - **Supabase:** storage provider reached through REST calls inside `lib/blob.ts` with credentials sourced from environment variables.
-- **Google Gemini (Vertex AI):** main conversational AI via REST fetches inside `/api/ask-audio` and `/api/session/[id]/intro` with models resolved by `lib/google.ts`.
+- **Google Gemini (Vertex AI):** main conversational AI via REST fetches inside `/api/ask-audio` with models resolved by `lib/google.ts`.
 - **OpenAI:** optional TTS via `lib/openaiTts.ts` and diagnostics via `/api/diagnostics/openai` (for verifying keys/models).
 - **Resend / SendGrid:** outbound email for session recaps (`lib/email.ts`).
 - **Browser Web APIs:** media capture, speech synthesis fallback, and localStorage for diagnostics and session persistence.
@@ -63,7 +63,7 @@ File inventory for further study
 - Front-end UI: `app/page.tsx`, `app/layout.tsx`, `app/(...)` routes.
 - Audio utilities: `lib/audio-bridge.ts`, `lib/session-recorder.ts`.
 - Data + storage: `lib/data.ts`, `lib/blob.ts`, `utils/blob-env.ts`.
-- AI interactions: `app/api/ask-audio/route.ts`, `app/api/session/[id]/intro/route.ts`, `lib/google.ts`.
+- AI interactions: `app/api/ask-audio/route.ts`, `lib/google.ts`.
 - Diagnostics: `app/api/diagnostics/*`, `lib/foxes.ts`, `lib/deployment-metadata.server.ts`.
 - Emails & defaults: `lib/email.ts`, `lib/default-notify-email.server.ts`, `lib/default-notify-email.client.ts`.
 

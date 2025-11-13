@@ -3,8 +3,8 @@
 This document enumerates every environment variable reference in the codebase and clarifies whether it is required, optional, or context-specific. All values must be real; placeholders and silent defaults have been removed from the application code.
 
 ## Google Generative AI
-- `GOOGLE_API_KEY` (required) — Enables Google Gemini requests in `app/api/ask-audio/route.ts`, `app/api/session/[id]/intro/route.ts`, and the diagnostics endpoints.
-- `GOOGLE_MODEL` (required) — Primary model name resolved by `lib/google.ts` for audio and intro flows. Invalid or blank entries throw descriptive errors.
+- `GOOGLE_API_KEY` (required) — Enables Google Gemini requests in `app/api/ask-audio/route.ts` and the diagnostics endpoints.
+- `GOOGLE_MODEL` (required) — Primary model name resolved by `lib/google.ts` for conversational flows. Invalid or blank entries throw descriptive errors.
 - `GOOGLE_DIAGNOSTICS_MODEL` (optional override) — Preferred model for `/api/diagnostics/google`. Falls back to `GOOGLE_MODEL` when provided.
 - `PROVIDER` (required) — Must be set to `google` for audio capture; enforced in `app/api/ask-audio/route.ts`.
 
