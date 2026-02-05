@@ -177,21 +177,23 @@ export async function upsertSessionRecord(record: SessionRecord): Promise<Sessio
     turnsIncluded: Array.isArray(record.turns) ? record.turns.length : 0,
   })
 
-  const { data, error } = await supabase
-    .from(table)
-    .upsert(sanitizedRecord)
-    .select()
-    .eq('id', record.id)
-    .maybeSingle()
+  return withRetry(async () => {
+    const { data, error } = await supabase
+      .from(table)
+      .upsert(sanitizedRecord)
+      .select()
+      .eq('id', record.id)
+      .maybeSingle()
 
-  if (error || !data) {
-    const message = withSessionsTableHint('upsert:failure', error?.message || 'Supabase upsert failed without error payload.')
-    log('error', 'upsert:failure', { sessionId: record.id, table, error: message })
-    throw new Error(message)
-  }
+    if (error || !data) {
+      const message = withSessionsTableHint('upsert:failure', error?.message || 'Supabase upsert failed without error payload.')
+      log('error', 'upsert:failure', { sessionId: record.id, table, error: message })
+      throw new Error(message)
+    }
 
-  log('log', 'upsert:success', { sessionId: data.id, table })
-  return data as SessionRecord
+    log('log', 'upsert:success', { sessionId: data.id, table })
+    return data as SessionRecord
+  }, 'upsert')
 }
 
 export async function fetchSessionRecord(id: string): Promise<SessionRecord | null> {
@@ -200,25 +202,27 @@ export async function fetchSessionRecord(id: string): Promise<SessionRecord | nu
   assertUuidFormat(id, 'fetch:validate-id')
   log('log', 'fetch:start', { sessionId: id, table })
 
-  const { data, error } = await supabase
-    .from(table)
-    .select('*')
-    .eq('id', id)
-    .maybeSingle()
+  return withRetry(async () => {
+    const { data, error } = await supabase
+      .from(table)
+      .select('*')
+      .eq('id', id)
+      .maybeSingle()
 
-  if (error) {
-    const message = withSessionsTableHint('fetch:failure', error.message)
-    log('error', 'fetch:failure', { sessionId: id, table, error: message })
-    throw new Error(message)
-  }
+    if (error) {
+      const message = withSessionsTableHint('fetch:failure', error.message)
+      log('error', 'fetch:failure', { sessionId: id, table, error: message })
+      throw new Error(message)
+    }
 
-  if (!data) {
-    log('log', 'fetch:missing', { sessionId: id, table })
-    return null
-  }
+    if (!data) {
+      log('log', 'fetch:missing', { sessionId: id, table })
+      return null
+    }
 
-  log('log', 'fetch:success', { sessionId: data.id, table })
-  return data as SessionRecord
+    log('log', 'fetch:success', { sessionId: data.id, table })
+    return data as SessionRecord
+  }, 'fetch')
 }
 
 export async function fetchAllSessions(): Promise<SessionRecord[]> {
