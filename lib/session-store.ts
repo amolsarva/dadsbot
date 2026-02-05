@@ -23,6 +23,41 @@ export type SessionRecord = {
 let cachedSessionsTable: string | null = null
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
+const MAX_RETRIES = 3
+const RETRY_DELAY_MS = 500
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  step: string,
+  retries = MAX_RETRIES,
+): Promise<T> {
+  let lastError: Error | null = null
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fn()
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+      const isNetworkError = lastError.message.includes('fetch failed') ||
+        lastError.message.includes('ECONNRESET') ||
+        lastError.message.includes('ETIMEDOUT')
+
+      if (!isNetworkError || attempt === retries) {
+        throw lastError
+      }
+
+      log('log', `${step}:retry`, {
+        attempt,
+        maxRetries: retries,
+        error: lastError.message,
+        nextDelayMs: RETRY_DELAY_MS * attempt,
+      })
+
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS * attempt))
+    }
+  }
+  throw lastError
+}
+
 function assertUuidFormat(sessionId: string, step: string) {
   if (UUID_PATTERN.test(sessionId)) return
 
@@ -191,20 +226,22 @@ export async function fetchAllSessions(): Promise<SessionRecord[]> {
   const table = sessionsTableName('list:start')
   log('log', 'list:start', { table })
 
-  const { data, error } = await supabase
-    .from(table)
-    .select('*')
-    .order('created_at', { ascending: true })
+  return withRetry(async () => {
+    const { data, error } = await supabase
+      .from(table)
+      .select('*')
+      .order('created_at', { ascending: true })
 
-  if (error) {
-    const message = withSessionsTableHint('list:failure', error.message)
-    log('error', 'list:failure', { table, error: message })
-    throw new Error(message)
-  }
+    if (error) {
+      const message = withSessionsTableHint('list:failure', error.message)
+      log('error', 'list:failure', { table, error: message })
+      throw new Error(message)
+    }
 
-  const sessions = (data as SessionRecord[]) || []
-  log('log', 'list:success', { table, count: sessions.length })
-  return sessions
+    const sessions = (data as SessionRecord[]) || []
+    log('log', 'list:success', { table, count: sessions.length })
+    return sessions
+  }, 'list')
 }
 
 export async function deleteSessionRecord(id: string): Promise<void> {
