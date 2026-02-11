@@ -1012,6 +1012,21 @@ input[type="checkbox"] {
   font-size: 13px;
   color: var(--muted);
   margin-top: 6px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.history-separator {
+  color: var(--border);
+  margin: 0 2px;
+}
+
+.history-has-audio,
+.history-has-transcript {
+  color: var(--accent-deep);
+  font-size: 12px;
 }
 
 .history-empty {
@@ -1057,7 +1072,8 @@ input[type="checkbox"] {
   color: #0b6a2b;
 }
 
-.history-status--in_progress {
+.history-status--in_progress,
+.history-status--in-progress {
   background: rgba(249, 115, 22, 0.12);
   color: #c2410c;
 }

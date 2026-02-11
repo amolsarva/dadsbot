@@ -267,13 +267,35 @@ export function HistoryView({ userHandle }: HistoryViewProps) {
                     <span className="history-expand-icon">
                       {expandedSessions.has(s.id) ? '▼' : '▶'}
                     </span>
-                    <h3>{s.title || `Session from ${new Date(s.created_at).toLocaleString()}`}</h3>
-                    <span className={`history-status history-status--${s.status}`}>
-                      {s.status}
+                    <h3>{s.title || `Session on ${new Date(s.created_at).toLocaleDateString()}`}</h3>
+                    <span className={`history-status history-status--${s.status.replace('_', '-')}`}>
+                      {s.status === 'in_progress' ? 'In Progress' : s.status === 'completed' ? 'Complete' : s.status}
                     </span>
                   </div>
                   <div className="history-meta">
-                    {new Date(s.created_at).toLocaleDateString()} • {s.total_turns} turns
+                    <span className="history-date">
+                      {new Date(s.created_at).toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </span>
+                    <span className="history-separator">•</span>
+                    <span className="history-turns">
+                      {s.total_turns} {s.total_turns === 1 ? 'turn' : 'turns'}
+                    </span>
+                    {s.artifacts?.session_audio && (
+                      <>
+                        <span className="history-separator">•</span>
+                        <span className="history-has-audio">🎙️ Audio</span>
+                      </>
+                    )}
+                    {s.artifacts?.transcript_txt && (
+                      <>
+                        <span className="history-separator">•</span>
+                        <span className="history-has-transcript">📄 Transcript</span>
+                      </>
+                    )}
                   </div>
                 </div>
 
