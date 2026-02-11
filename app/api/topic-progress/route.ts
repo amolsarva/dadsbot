@@ -4,6 +4,7 @@ import { primeNetlifyBlobContextFromHeaders } from '@/lib/blob'
 import { normalizeHandle } from '@/lib/user-scope'
 
 // Topic definitions matching the interview guide stages
+// This API provides topic coverage analysis for the home page progress meters
 const TOPIC_DEFINITIONS = [
   {
     id: 'childhood',
