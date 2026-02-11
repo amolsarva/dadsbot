@@ -232,7 +232,7 @@ export function HistoryView({ userHandle }: HistoryViewProps) {
             <p>No profile built yet.</p>
             <p className="profile-empty-hint">
               Complete a few interview sessions to start building your story profile.
-              I'll remember details about your life, family, and experiences.
+              I&apos;ll remember details about your life, family, and experiences.
             </p>
           </div>
         )}

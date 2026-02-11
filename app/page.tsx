@@ -25,7 +25,6 @@ const HARD_TURN_LIMIT_MS = 90_000
 const DEFAULT_BASELINE = 0.004
 const MIN_BASELINE = 0.0004
 const MAX_BASELINE = 0.05
-const BASELINE_SPIKE_FACTOR = 2.8
 const INTRO_MIN_PREP_MS = 700
 
 const clampBaseline = (value: number | null | undefined) => {
