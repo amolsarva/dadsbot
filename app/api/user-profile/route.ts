@@ -1,7 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getMemoryPrimer, ensureSessionMemoryHydrated, getHydrationDiagnostics } from '@/lib/data'
+import { getMemoryPrimer, ensureSessionMemoryHydrated, getHydrationDiagnostics, getSessionMemorySnapshot } from '@/lib/data'
 import { primeNetlifyBlobContextFromHeaders } from '@/lib/blob'
 import { normalizeHandle } from '@/lib/user-scope'
+
+// Topic definitions for progress tracking
+const TOPIC_DEFINITIONS = [
+  { id: 'childhood', label: 'Childhood', keywords: [/born/i, /birth/i, /child/i, /parent/i, /sibling/i, /home/i, /grew up/i, /mother/i, /father/i, /mom/i, /dad/i], icon: '💛' },
+  { id: 'education', label: 'Education', keywords: [/school/i, /class/i, /teacher/i, /friend/i, /college/i, /university/i, /study/i, /student/i, /learn/i], icon: '📚' },
+  { id: 'career', label: 'Work & Career', keywords: [/job/i, /work/i, /career/i, /business/i, /office/i, /company/i, /boss/i, /profession/i, /retire/i], icon: '💼' },
+  { id: 'family', label: 'Family Life', keywords: [/married/i, /spouse/i, /wife/i, /husband/i, /wedding/i, /son/i, /daughter/i, /family/i], icon: '👨‍👩‍👧‍👦' },
+  { id: 'culture', label: 'Culture & Traditions', keywords: [/tradition/i, /culture/i, /festival/i, /holiday/i, /religion/i, /community/i, /language/i, /food/i], icon: '🎭' },
+  { id: 'wisdom', label: 'Wisdom & Advice', keywords: [/advice/i, /lesson/i, /wisdom/i, /regret/i, /proud/i, /hope/i, /legacy/i, /message/i], icon: '💡' },
+]
+
+type TopicProgress = {
+  id: string
+  label: string
+  icon: string
+  mentions: number
+}
+
+function countTopicMentions(text: string): TopicProgress[] {
+  return TOPIC_DEFINITIONS.map((topic) => {
+    let count = 0
+    for (const keyword of topic.keywords) {
+      const matches = text.match(new RegExp(keyword, 'gi'))
+      if (matches) {
+        count += matches.length
+      }
+    }
+    return {
+      id: topic.id,
+      label: topic.label,
+      icon: topic.icon,
+      mentions: count,
+    }
+  })
+}
 
 export async function GET(req: NextRequest) {
   primeNetlifyBlobContextFromHeaders(req.headers)
@@ -23,12 +58,34 @@ export async function GET(req: NextRequest) {
   try {
     const primer = await getMemoryPrimer(handle)
 
+    // Get sessions for topic analysis
+    const { sessions } = getSessionMemorySnapshot(undefined, { handle })
+    const allUserText = sessions
+      .flatMap((session) =>
+        session.turns
+          .filter((turn) => turn.role === 'user' && turn.text)
+          .map((turn) => turn.text)
+      )
+      .join(' ')
+
+    // Calculate topic progress
+    const topicProgress = countTopicMentions(allUserText)
+    const maxMentions = Math.max(...topicProgress.map((t) => t.mentions), 1)
+    const sessionCount = sessions.length
+    const totalTurns = sessions.reduce((sum, s) => sum + s.total_turns, 0)
+
     if (!primer.text || primer.text.trim().length === 0) {
       return NextResponse.json({
         ok: true,
         hasProfile: false,
         handle: handle || null,
         profile: null,
+        topicProgress: {
+          topics: topicProgress,
+          maxMentions,
+          sessionCount,
+          totalTurns,
+        },
         message: 'No profile data yet. Complete some sessions to build your profile.'
       })
     }
@@ -44,7 +101,13 @@ export async function GET(req: NextRequest) {
         raw: primer.text,
         sections,
         updatedAt: primer.updatedAt || null,
-      }
+      },
+      topicProgress: {
+        topics: topicProgress,
+        maxMentions,
+        sessionCount,
+        totalTurns,
+      },
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to load profile'

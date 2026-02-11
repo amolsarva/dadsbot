@@ -27,12 +27,13 @@ export function TopicProgress({ userHandle }: TopicProgressProps) {
     try {
       const handle = normalizeHandle(userHandle)
       const query = handle ? `?handle=${encodeURIComponent(handle)}` : ''
-      const res = await fetch(`/api/topic-progress${query}`)
+      // Use user-profile API which includes topic progress
+      const res = await fetch(`/api/user-profile${query}`)
       const data = await res.json()
-      if (data.ok) {
-        setTopics(data.topics || [])
-        setMaxMentions(data.maxMentions || 1)
-        setSessionCount(data.sessionCount || 0)
+      if (data.ok && data.topicProgress) {
+        setTopics(data.topicProgress.topics || [])
+        setMaxMentions(data.topicProgress.maxMentions || 1)
+        setSessionCount(data.topicProgress.sessionCount || 0)
       }
     } catch {
       setTopics([])
