@@ -15,20 +15,27 @@ import {
 } from '@/lib/fallback-texts'
 import { resolveGoogleModel } from '@/lib/google'
 
-const INTRO_SYSTEM_PROMPT = `You are DadsBot, a friendly conversation partner here to chat about life, memories, and stories.
+const INTRO_SYSTEM_PROMPT = `You are DadsBot, a warm and curious conversation partner helping someone capture their family stories and life memories.
+
+Your approach: Be gently DIRECTED - suggest a specific topic to explore rather than leaving it open-ended. This reduces cognitive load on the person.
 
 For first-time users:
-- Introduce yourself briefly and warmly
-- Explain you're here to have a conversation and help them capture stories if they'd like
-- Invite them to share whatever's on their mind - a memory, a story, or just chat
+- Introduce yourself warmly and briefly
+- Suggest a SPECIFIC topic to start with: "I'd love to learn about your mom" or "Let's start with where you grew up"
+- Ask a concrete opening question: "What was her name?" or "What was your hometown like?"
 
 For returning users:
 - Welcome them back warmly
-- If you have context about previous conversations, mention something you remember
-- Ask how they're doing or what they'd like to talk about today
+- Look at the "suggested topics" below to find something you haven't explored yet
+- Suggest that topic naturally: "Last time we talked about your career. Today I'm curious about your childhood - where did you grow up?"
+- Ask a specific, easy-to-answer question to get started
 
-Keep it casual and warm - under 80 words. Don't be overly formal or "interviewer-like".
-End with an open, friendly question - not a directive.
+Guidelines:
+- Keep it under 80 words
+- Be warm and curious, not formal or clinical
+- ALWAYS suggest a specific topic and ask a concrete question
+- Make it easy for them - they shouldn't have to think about what to share
+- If they want to talk about something else, that's perfectly fine - follow their lead
 
 Respond with JSON: {"message":"<your greeting>","question":"<your question>"}. No code fences.`
 
@@ -78,11 +85,36 @@ function buildFallbackIntro(options: {
   return `${introPrefix} ${reminder} ${invitation} ${closingQuestion}`.trim()
 }
 
+// Topics to explore - for suggesting direction
+const SUGGESTED_TOPICS = [
+  { id: 'mother', label: 'Mother/Mom', keywords: ['mother', 'mom', 'mama', 'mum'], question: "What was your mother's name? Tell me about her." },
+  { id: 'father', label: 'Father/Dad', keywords: ['father', 'dad', 'papa', 'daddy'], question: "What was your father's name? What was he like?" },
+  { id: 'childhood', label: 'Childhood home', keywords: ['grew up', 'childhood', 'hometown', 'born'], question: 'Where did you grow up? What was it like there?' },
+  { id: 'siblings', label: 'Brothers & Sisters', keywords: ['brother', 'sister', 'sibling'], question: 'Did you have brothers or sisters? Tell me about them.' },
+  { id: 'school', label: 'School days', keywords: ['school', 'teacher', 'class', 'education'], question: 'What was school like for you? Any memorable teachers?' },
+  { id: 'career', label: 'Work & Career', keywords: ['job', 'work', 'career', 'profession'], question: 'What kind of work did you do? How did you get into that?' },
+  { id: 'marriage', label: 'Marriage & Partner', keywords: ['married', 'wife', 'husband', 'wedding', 'spouse'], question: 'How did you meet your spouse? Tell me about that.' },
+  { id: 'children', label: 'Children', keywords: ['son', 'daughter', 'child', 'kids'], question: 'Tell me about your children. What are some of your favorite memories with them?' },
+  { id: 'traditions', label: 'Family traditions', keywords: ['tradition', 'holiday', 'celebration', 'festival'], question: 'What traditions or holidays were special in your family?' },
+  { id: 'lessons', label: 'Life lessons', keywords: ['lesson', 'advice', 'wisdom', 'learned'], question: "What's something important that life has taught you?" },
+]
+
+function findSuggestedTopics(historyText: string): string[] {
+  const lowerHistory = historyText.toLowerCase()
+  const uncovered = SUGGESTED_TOPICS.filter((topic) => {
+    // Check if any keyword appears in the history
+    return !topic.keywords.some((kw) => lowerHistory.includes(kw))
+  })
+  // Return 2-3 suggested topics that haven't been covered
+  return uncovered.slice(0, 3).map((t) => `${t.label}: "${t.question}"`)
+}
+
 function buildHistorySummary(
   titles: string[],
   details: string[],
   askedQuestions: string[],
-): { historyText: string; questionText: string } {
+  primerText: string,
+): { historyText: string; questionText: string; suggestedTopics: string } {
   const historyLines: string[] = []
   if (titles.length) {
     historyLines.push('Session titles remembered:')
@@ -112,7 +144,14 @@ function buildHistorySummary(
     ? ['Avoid repeating these prior questions:', ...uniqueQuestions.map((question) => `- ${question}`)]
     : ['No prior questions are on record.']
 
-  return { historyText, questionText: questionLines.join('\n') }
+  // Find topics that haven't been explored yet
+  const combinedContext = `${historyText} ${primerText}`.toLowerCase()
+  const suggested = findSuggestedTopics(combinedContext)
+  const suggestedTopics = suggested.length
+    ? `SUGGESTED TOPICS TO EXPLORE (pick one of these to suggest):\n${suggested.map((s) => `- ${s}`).join('\n')}`
+    : 'All major topics have been touched on. You can revisit any area for more depth.'
+
+  return { historyText, questionText: questionLines.join('\n'), suggestedTopics }
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -205,14 +244,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   try {
-    const { historyText, questionText } = buildHistorySummary(titles, details, askedQuestions)
+    const { historyText, questionText, suggestedTopics } = buildHistorySummary(titles, details, askedQuestions, primerText)
     const parts: any[] = [{ text: INTRO_SYSTEM_PROMPT }]
     if (primerText.trim().length) {
       parts.push({ text: `Memory primer:\n${primerText.slice(0, 6000)}` })
     }
     parts.push({ text: historyText })
     parts.push({ text: questionText })
-    parts.push({ text: 'Respond only with JSON in the format {"message":"...","question":"..."}.' })
+    parts.push({ text: suggestedTopics })
+    parts.push({ text: 'Respond only with JSON in the format {"message":"...","question":"..."}. Remember to suggest a SPECIFIC topic and ask a CONCRETE question.' })
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${googleApiKey}`,

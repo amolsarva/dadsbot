@@ -20,6 +20,8 @@ import {
 } from '@/lib/user-scope'
 import { readDefaultNotifyEmailClient } from '@/lib/default-notify-email.client'
 import { maskEmail } from '@/lib/default-notify-email.shared'
+import { TopicProgress } from '@/components/topic-progress'
+import { VoiceDebug, VoiceDebugEntry, createVoiceDebugEntry } from '@/components/voice-debug'
 
 const HARD_TURN_LIMIT_MS = 90_000
 const DEFAULT_BASELINE = 0.004
@@ -612,6 +614,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
   const [startupDetails, setStartupDetails] = useState<string[]>([])
   const [fatalError, setFatalError] = useState<string | null>(null)
   const [fatalDetails, setFatalDetails] = useState<string[]>([])
+  const [voiceDebugEntries, setVoiceDebugEntries] = useState<VoiceDebugEntry[]>([])
   const inTurnRef = useRef(false)
   const manualStopRef = useRef(false)
   const recorderRef = useRef<SessionRecorder | null>(null)
@@ -635,6 +638,11 @@ export function Home({ userHandle }: { userHandle?: string }) {
       window.clearTimeout(autoAdvanceTimeoutRef.current)
     }
     autoAdvanceTimeoutRef.current = null
+  }, [])
+
+  const logVoiceEvent = useCallback((source: VoiceDebugEntry['source'], message: string) => {
+    const entry = createVoiceDebugEntry(source, message)
+    setVoiceDebugEntries((prev) => [...prev.slice(-50), entry])
   }, [])
 
   useEffect(() => {
@@ -982,6 +990,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
       },
     ) => {
       if (typeof window === 'undefined') return 0
+      logVoiceEvent('browser', `Starting browser Audio element playback (${mime})`)
       return await new Promise<number>((resolve) => {
         try {
           const src = `data:${mime};base64,${base64}`
@@ -996,12 +1005,18 @@ export function Home({ userHandle }: { userHandle?: string }) {
           const ensureStarted = () => {
             if (started) return
             started = true
+            logVoiceEvent('browser', 'Browser audio playback started')
             triggerStart()
           }
           audio.onended = () => {
-            resolve(Math.round((audio.duration || 0) * 1000))
+            const durationMs = Math.round((audio.duration || 0) * 1000)
+            logVoiceEvent('browser', `Browser audio playback ended (${durationMs}ms)`)
+            resolve(durationMs)
           }
-          audio.onerror = () => resolve(0)
+          audio.onerror = () => {
+            logVoiceEvent('error', 'Browser audio playback error')
+            resolve(0)
+          }
           audio.onplay = ensureStarted
           audio.onplaying = ensureStarted
           const playPromise = audio.play()
@@ -1010,18 +1025,20 @@ export function Home({ userHandle }: { userHandle?: string }) {
               .then(() => {
                 ensureStarted()
               })
-              .catch(() => {
+              .catch((err) => {
+                logVoiceEvent('error', `Browser audio play() rejected: ${err?.message || 'unknown'}`)
                 resolve(0)
               })
           } else {
             ensureStarted()
           }
-        } catch {
+        } catch (err: any) {
+          logVoiceEvent('error', `Browser audio exception: ${err?.message || 'unknown'}`)
           resolve(0)
         }
       })
     },
-    [],
+    [logVoiceEvent],
   )
 
   const playAssistantResponse = useCallback(
@@ -1032,6 +1049,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
       },
     ): Promise<AssistantPlayback> => {
       if (!text) return { base64: null, mime: 'audio/mpeg', durationMs: 0 }
+      logVoiceEvent('system', `Requesting TTS from OpenAI API (${text.length} chars)`)
       pushLog('Assistant reply ready → playing')
       try {
         const res = await fetch('/api/tts', {
@@ -1039,16 +1057,22 @@ export function Home({ userHandle }: { userHandle?: string }) {
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ text, speed: 1.22 }),
         })
-        if (!res.ok) throw new Error('tts_failed')
+        if (!res.ok) {
+          logVoiceEvent('error', `TTS API failed with status ${res.status}`)
+          throw new Error('tts_failed')
+        }
         const data = await res.json()
         if (!data?.audioBase64 || typeof data.audioBase64 !== 'string') {
+          logVoiceEvent('error', 'TTS API returned invalid audio data')
           throw new Error('tts_invalid')
         }
+        logVoiceEvent('openai', `TTS audio received (${Math.round(data.audioBase64.length / 1024)}KB)`)
         const mime = typeof data.mime === 'string' ? data.mime : 'audio/mpeg'
         let durationMs = 0
         const recorder = recorderRef.current
         if (recorder) {
           try {
+            logVoiceEvent('openai', 'Starting AudioContext playback via SessionRecorder')
             if (options?.onPlaybackStart) {
               try {
                 options.onPlaybackStart()
@@ -1056,13 +1080,16 @@ export function Home({ userHandle }: { userHandle?: string }) {
             }
             const playback = await recorder.playAssistantBase64(data.audioBase64, mime)
             durationMs = playback?.durationMs ?? 0
-          } catch (err) {
+            logVoiceEvent('openai', `AudioContext playback completed (${durationMs}ms)`)
+          } catch (err: any) {
+            logVoiceEvent('error', `AudioContext playback failed: ${err?.message || 'unknown'}, falling back to browser`)
             pushLog('Recorder playback failed, falling back to direct audio')
             durationMs = await playWithAudioElement(data.audioBase64, mime, {
               onStart: options?.onPlaybackStart,
             })
           }
         } else {
+          logVoiceEvent('system', 'No SessionRecorder available, using browser Audio element')
           durationMs = await playWithAudioElement(data.audioBase64, mime, {
             onStart: options?.onPlaybackStart,
           })
@@ -1070,11 +1097,12 @@ export function Home({ userHandle }: { userHandle?: string }) {
         return { base64: data.audioBase64, mime, durationMs }
       } catch (err) {
         const reason = err instanceof Error ? err.message : 'tts_failed'
+        logVoiceEvent('error', `TTS request failed: ${reason}`)
         pushLog(`TTS request failed: ${truncateForLog(reason, 160)}`)
         throw (err instanceof Error ? err : new Error(reason || 'tts_failed'))
       }
     },
-    [playWithAudioElement, pushLog],
+    [logVoiceEvent, playWithAudioElement, pushLog],
   )
 
   const finalizeNow = useCallback(async () => {
@@ -2490,6 +2518,10 @@ export function Home({ userHandle }: { userHandle?: string }) {
         </div>
       </div>
 
+      <div className="panel-card topic-progress-card">
+        <TopicProgress userHandle={normalizedHandle} />
+      </div>
+
       <div className="panel-card diagnostics-card">
         <div className="diagnostics-head">
           <span>Diagnostics log</span>
@@ -2506,6 +2538,9 @@ export function Home({ userHandle }: { userHandle?: string }) {
           .
         </div>
       </div>
+
+      {/* Voice synthesis debug log - shows at bottom of screen */}
+      <VoiceDebug entries={voiceDebugEntries} visible={voiceDebugEntries.length > 0} />
     </main>
   )
 }

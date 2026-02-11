@@ -1581,3 +1581,207 @@ input[type="checkbox"] {
     padding: 24px 16px 48px;
   }
 }
+
+/* ============================================
+   TOPIC PROGRESS METERS
+   ============================================ */
+
+.topic-progress {
+  padding: 0;
+}
+
+.topic-progress__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.topic-progress__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+}
+
+.topic-progress__sessions {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.topic-progress__loading,
+.topic-progress__empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.topic-progress__empty p {
+  margin: 0;
+}
+
+.topic-progress__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .topic-progress__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.topic-meter {
+  padding: 12px;
+  background: var(--bg-accent);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.topic-meter:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+.topic-meter--expanded {
+  border-color: var(--accent);
+}
+
+.topic-meter__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.topic-meter__icon {
+  font-size: 18px;
+}
+
+.topic-meter__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.topic-meter__bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.topic-meter__fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+/* Progress level colors */
+.topic-meter--none .topic-meter__fill {
+  background: var(--border);
+}
+
+.topic-meter--low .topic-meter__fill {
+  background: var(--accent);
+  opacity: 0.5;
+}
+
+.topic-meter--medium .topic-meter__fill {
+  background: var(--accent);
+}
+
+.topic-meter--high .topic-meter__fill {
+  background: var(--accent-deep);
+}
+
+.topic-meter__count {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.topic-meter--none .topic-meter__count {
+  font-style: italic;
+}
+
+.topic-meter__snippets {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.topic-meter__snippet {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+  margin-bottom: 6px;
+  font-style: italic;
+}
+
+.topic-meter__snippet:last-child {
+  margin-bottom: 0;
+}
+
+/* ============================================
+   VOICE DEBUG LOG
+   ============================================ */
+
+.voice-debug {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.85);
+  color: #00ff88;
+  font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+  font-size: 11px;
+  padding: 8px 16px;
+  z-index: 9999;
+  max-height: 120px;
+  overflow-y: auto;
+  backdrop-filter: blur(4px);
+}
+
+.voice-debug__entry {
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  gap: 12px;
+}
+
+.voice-debug__entry:last-child {
+  border-bottom: none;
+}
+
+.voice-debug__time {
+  color: #888;
+  flex-shrink: 0;
+}
+
+.voice-debug__source {
+  color: #00ccff;
+  font-weight: 600;
+  flex-shrink: 0;
+  min-width: 80px;
+}
+
+.voice-debug__source--openai {
+  color: #00ff88;
+}
+
+.voice-debug__source--browser {
+  color: #ffcc00;
+}
+
+.voice-debug__source--error {
+  color: #ff4444;
+}
+
+.voice-debug__message {
+  color: #ffffff;
+}
