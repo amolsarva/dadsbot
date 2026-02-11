@@ -518,6 +518,16 @@ button.hero-button .hero-button__dot {
   filter: saturate(0.95);
 }
 
+button.hero-button .hero-button__level {
+  position: absolute;
+  inset: 8%;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(249, 115, 22, 0.35) 0%, rgba(249, 115, 22, 0.08) 70%, transparent 100%);
+  z-index: 1;
+  pointer-events: none;
+  transition: transform 0.08s ease-out, opacity 0.08s ease-out;
+}
+
 button.hero-button .hero-button__content {
   position: relative;
   z-index: 2;

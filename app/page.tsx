@@ -607,6 +607,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
   const [hasStarted, setHasStarted] = useState(false)
   const [finishRequested, setFinishRequested] = useState(false)
   const [manualStopRequested, setManualStopRequested] = useState(false)
+  const [audioLevel, setAudioLevel] = useState(0)
   const [providerError, setProviderError] = useState<DiagnosticProviderErrorPayload | null>(null)
   const [startupError, setStartupError] = useState<string | null>(null)
   const [startupDetails, setStartupDetails] = useState<string[]>([])
@@ -1317,15 +1318,17 @@ export function Home({ userHandle }: { userHandle?: string }) {
           baseline: baselineToUse,
           minDurationMs: 800,
           maxDurationMs: HARD_TURN_LIMIT_MS,
-          silenceMs: 900,
-          graceMs: 300,
+          silenceMs: 700,
+          graceMs: 200,
           startRatio: 2.4,
-          stopRatio: 1.5,
+          stopRatio: 1.8,
+          quietStreak: 6,
           shouldForceStop: () => {
             if (finishRequestedRef.current) return true
             if (manualStopRef.current) return true
             return Date.now() >= hardStopAt
           },
+          onAudioLevel: (level: number) => setAudioLevel(Math.min(level, 10)),
         })
         b64 = await blobToBase64(rec.blob)
         recDuration = rec.durationMs || 0
@@ -2107,6 +2110,8 @@ export function Home({ userHandle }: { userHandle?: string }) {
     if (startupError || fatalError) return
     if (machineState === 'recording') {
       requestManualStop()
+    } else if (machineState === 'playing') {
+      recorderRef.current?.skipPlayback()
     }
   }, [fatalError, machineState, requestManualStop, startupError])
 
@@ -2141,7 +2146,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
       case 'speakingPrep':
         return 'Warming up my voice so I can respond clearly.'
       case 'playing':
-        return 'Sharing what I heard and how we can keep going.'
+        return 'Sharing what I heard. Tap the circle to skip ahead.'
       case 'readyToContinue':
         return 'I’m ready whenever you are—just start speaking.'
       default:
@@ -2175,11 +2180,13 @@ export function Home({ userHandle }: { userHandle?: string }) {
       ? 'Stopping the recording'
       : machineState === 'recording'
         ? 'Listening. Tap to finish your turn.'
-        : machineState === 'calibrating'
-          ? 'Calibrating the microphone baseline'
-          : machineState === 'speakingPrep'
-            ? 'Preparing to speak'
-            : 'Session status indicator'
+        : machineState === 'playing'
+          ? 'Speaking. Tap to skip ahead.'
+          : machineState === 'calibrating'
+            ? 'Calibrating the microphone baseline'
+            : machineState === 'speakingPrep'
+              ? 'Preparing to speak'
+              : 'Session status indicator'
   const statusMessage = (() => {
     if (startupError) {
       return 'Startup blocked—resolve Diagnostics before beginning.'
@@ -2414,12 +2421,25 @@ export function Home({ userHandle }: { userHandle?: string }) {
           onClick={handleHeroPress}
           className={heroButtonClasses.join(' ')}
           aria-label={heroAriaLabel}
-          style={heroStyles}
+          style={{
+            ...heroStyles,
+            '--audio-level': machineState === 'recording' ? Math.min(audioLevel / 5, 1) : 0,
+          } as CSSProperties}
           disabled={heroDisabled}
         >
           <span className="hero-button__gradient" aria-hidden="true" />
           <span className="hero-button__pulse" aria-hidden="true" />
           <span className="hero-button__dot" aria-hidden="true" />
+          {machineState === 'recording' && (
+            <span
+              className="hero-button__level"
+              aria-hidden="true"
+              style={{
+                transform: `scale(${1 + audioLevel * 0.08})`,
+                opacity: Math.min(0.2 + audioLevel * 0.08, 0.7),
+              }}
+            />
+          )}
           <span className="hero-button__content">
             <span className="hero-button__icon" aria-hidden="true">
               {heroIcon}

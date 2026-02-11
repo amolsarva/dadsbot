@@ -23,41 +23,6 @@ export type SessionRecord = {
 let cachedSessionsTable: string | null = null
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-const MAX_RETRIES = 3
-const RETRY_DELAY_MS = 500
-
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  step: string,
-  retries = MAX_RETRIES,
-): Promise<T> {
-  let lastError: Error | null = null
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      return await fn()
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err))
-      const isNetworkError = lastError.message.includes('fetch failed') ||
-        lastError.message.includes('ECONNRESET') ||
-        lastError.message.includes('ETIMEDOUT')
-
-      if (!isNetworkError || attempt === retries) {
-        throw lastError
-      }
-
-      log('log', `${step}:retry`, {
-        attempt,
-        maxRetries: retries,
-        error: lastError.message,
-        nextDelayMs: RETRY_DELAY_MS * attempt,
-      })
-
-      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS * attempt))
-    }
-  }
-  throw lastError
-}
-
 function assertUuidFormat(sessionId: string, step: string) {
   if (UUID_PATTERN.test(sessionId)) return
 
@@ -177,23 +142,21 @@ export async function upsertSessionRecord(record: SessionRecord): Promise<Sessio
     turnsIncluded: Array.isArray(record.turns) ? record.turns.length : 0,
   })
 
-  return withRetry(async () => {
-    const { data, error } = await supabase
-      .from(table)
-      .upsert(sanitizedRecord)
-      .select()
-      .eq('id', record.id)
-      .maybeSingle()
+  const { data, error } = await supabase
+    .from(table)
+    .upsert(sanitizedRecord)
+    .select()
+    .eq('id', record.id)
+    .maybeSingle()
 
-    if (error || !data) {
-      const message = withSessionsTableHint('upsert:failure', error?.message || 'Supabase upsert failed without error payload.')
-      log('error', 'upsert:failure', { sessionId: record.id, table, error: message })
-      throw new Error(message)
-    }
+  if (error || !data) {
+    const message = withSessionsTableHint('upsert:failure', error?.message || 'Supabase upsert failed without error payload.')
+    log('error', 'upsert:failure', { sessionId: record.id, table, error: message })
+    throw new Error(message)
+  }
 
-    log('log', 'upsert:success', { sessionId: data.id, table })
-    return data as SessionRecord
-  }, 'upsert')
+  log('log', 'upsert:success', { sessionId: data.id, table })
+  return data as SessionRecord
 }
 
 export async function fetchSessionRecord(id: string): Promise<SessionRecord | null> {
@@ -202,27 +165,25 @@ export async function fetchSessionRecord(id: string): Promise<SessionRecord | nu
   assertUuidFormat(id, 'fetch:validate-id')
   log('log', 'fetch:start', { sessionId: id, table })
 
-  return withRetry(async () => {
-    const { data, error } = await supabase
-      .from(table)
-      .select('*')
-      .eq('id', id)
-      .maybeSingle()
+  const { data, error } = await supabase
+    .from(table)
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
 
-    if (error) {
-      const message = withSessionsTableHint('fetch:failure', error.message)
-      log('error', 'fetch:failure', { sessionId: id, table, error: message })
-      throw new Error(message)
-    }
+  if (error) {
+    const message = withSessionsTableHint('fetch:failure', error.message)
+    log('error', 'fetch:failure', { sessionId: id, table, error: message })
+    throw new Error(message)
+  }
 
-    if (!data) {
-      log('log', 'fetch:missing', { sessionId: id, table })
-      return null
-    }
+  if (!data) {
+    log('log', 'fetch:missing', { sessionId: id, table })
+    return null
+  }
 
-    log('log', 'fetch:success', { sessionId: data.id, table })
-    return data as SessionRecord
-  }, 'fetch')
+  log('log', 'fetch:success', { sessionId: data.id, table })
+  return data as SessionRecord
 }
 
 export async function fetchAllSessions(): Promise<SessionRecord[]> {
@@ -230,22 +191,20 @@ export async function fetchAllSessions(): Promise<SessionRecord[]> {
   const table = sessionsTableName('list:start')
   log('log', 'list:start', { table })
 
-  return withRetry(async () => {
-    const { data, error } = await supabase
-      .from(table)
-      .select('*')
-      .order('created_at', { ascending: true })
+  const { data, error } = await supabase
+    .from(table)
+    .select('*')
+    .order('created_at', { ascending: true })
 
-    if (error) {
-      const message = withSessionsTableHint('list:failure', error.message)
-      log('error', 'list:failure', { table, error: message })
-      throw new Error(message)
-    }
+  if (error) {
+    const message = withSessionsTableHint('list:failure', error.message)
+    log('error', 'list:failure', { table, error: message })
+    throw new Error(message)
+  }
 
-    const sessions = (data as SessionRecord[]) || []
-    log('log', 'list:success', { table, count: sessions.length })
-    return sessions
-  }, 'list')
+  const sessions = (data as SessionRecord[]) || []
+  log('log', 'list:success', { table, count: sessions.length })
+  return sessions
 }
 
 export async function deleteSessionRecord(id: string): Promise<void> {

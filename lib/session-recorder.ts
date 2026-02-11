@@ -24,6 +24,7 @@ export class SessionRecorder {
   private chunks: Blob[] = []
   private mimeType: string = 'audio/webm'
   private startedAt = 0
+  private currentSource: AudioBufferSourceNode | null = null
 
   async start(): Promise<void> {
     if (typeof window === 'undefined') throw new Error('SessionRecorder unavailable')
@@ -107,6 +108,15 @@ export class SessionRecorder {
     this.cleanup()
   }
 
+  skipPlayback(): void {
+    if (this.currentSource) {
+      try {
+        this.currentSource.stop()
+      } catch {}
+      this.currentSource = null
+    }
+  }
+
   private playAudioBuffer(audioBuffer: AudioBuffer): Promise<PlaybackResult> {
     if (!this.audioCtx || !this.destination) throw new Error('Recorder not started')
     const source = this.audioCtx.createBufferSource()
@@ -114,11 +124,16 @@ export class SessionRecorder {
     source.connect(this.audioCtx.destination)
     source.connect(this.destination)
     const durationMs = Math.round(audioBuffer.duration * 1000)
+    this.currentSource = source
     return new Promise<PlaybackResult>((resolve, reject) => {
-      source.onended = () => resolve({ durationMs })
+      source.onended = () => {
+        this.currentSource = null
+        resolve({ durationMs })
+      }
       try {
         source.start()
       } catch (err) {
+        this.currentSource = null
         reject(err instanceof Error ? err : new Error('play_failed'))
       }
     })

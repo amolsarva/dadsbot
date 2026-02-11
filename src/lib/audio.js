@@ -61,6 +61,8 @@ export async function recordUntilSilence(options) {
     shouldForceStop = () => false,
     startRatio = 3.0,
     stopRatio = 2.0,
+    quietStreak: quietStreakThreshold = 8,
+    onAudioLevel = null,
   } = options
 
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -111,6 +113,7 @@ export async function recordUntilSilence(options) {
       an.getFloatTimeDomainData(data)
       const safeBaseline = baseline > 0.0001 ? baseline : 0.0001
       const level = rms(data) / safeBaseline
+      if (onAudioLevel) onAudioLevel(level)
       const now = performance.now()
       if (!started) {
         if (shouldForceStop()) {
@@ -143,7 +146,7 @@ export async function recordUntilSilence(options) {
           stopReason = 'force_stop_after_start'
           if (rec.state === 'recording') rec.stop()
           else finish({ blob: new Blob(chunks, { type: mime }), durationMs: elapsed, started, stopReason })
-        } else if (elapsed >= minDurationMs && quietStreak >= 8 && silenceElapsed >= silenceMs + graceMs) {
+        } else if (elapsed >= minDurationMs && quietStreak >= quietStreakThreshold && silenceElapsed >= silenceMs + graceMs) {
           stopReason = 'silence'
           rec.stop()
         }

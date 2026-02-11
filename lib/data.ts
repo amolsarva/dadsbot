@@ -496,20 +496,13 @@ export async function ensureSessionMemoryHydrated() {
   }
 }
 
-async function requireHydration(context: string, options: { optional?: boolean } = {}) {
+async function requireHydration(context: string) {
   const timestamp = diagnosticTimestamp()
   try {
     await ensureSessionMemoryHydrated()
   } catch (err) {
     const diagnosticPayload = { context, env: diagnosticEnvSummary(), error: describeError(err) }
     logDiagnostic('error', `session:hydrate:${context}:failure`, { ...diagnosticPayload, timestamp })
-    if (options.optional) {
-      logDiagnostic('log', `session:hydrate:${context}:skipped`, {
-        reason: 'Hydration failed but marked as optional; proceeding without full session memory.',
-        timestamp,
-      })
-      return
-    }
     throw err
   }
 }
@@ -672,9 +665,7 @@ export async function createSession({
   email_to: string
   user_handle?: string | null
 }): Promise<Session> {
-  // Hydration is optional for session creation - we can create a new session
-  // even if we can't load the full session history (e.g., during cold starts)
-  await requireHydration('createSession', { optional: true })
+  await requireHydration('createSession')
   const normalizedHandle = normalizeHandle(user_handle ?? undefined) ?? null
   await getMemoryPrimer(normalizedHandle).catch(() => undefined)
   const s: RememberedSession = {

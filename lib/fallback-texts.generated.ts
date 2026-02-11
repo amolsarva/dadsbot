@@ -19,7 +19,7 @@ export const FALLBACK_TEXTS = {
   "questions": {
     "detailGuard": "When you think about {DETAIL}, what else stands out now?",
     "promptPool": [
-      "Could you set the scene for me—where were you when this memory took place?",
+      "Where were you when this happened, and what did you notice first?",
       "Who else shared that moment with you, and what were they doing?",
       "What was the very first thing you noticed as it unfolded?",
       "What feeling rushed in right away?",
