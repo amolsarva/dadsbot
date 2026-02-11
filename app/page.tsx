@@ -1276,8 +1276,6 @@ export function Home({ userHandle }: { userHandle?: string }) {
     inTurnRef.current = true
     manualStopRef.current = false
     setManualStopRequested(false)
-    updateMachineState('calibrating')
-    pushLog('Calibrating microphone baseline')
     const currentTurnNumber = turn + 1
     let diagnosticSynopsis: DiagnosticTranscriptPayload | null = null
     try {
@@ -1285,29 +1283,23 @@ export function Home({ userHandle }: { userHandle?: string }) {
       let recDuration = 0
       let baselineToUse = baselineRef.current ?? DEFAULT_BASELINE
       let recMeta = { started: false, stopReason: 'unknown' as string }
-      const calibrateDuration = baselineRef.current ? 0.6 : 0.9
-      try {
-        const measured = clampBaseline(await calibrateRMS(calibrateDuration))
-        const previous = baselineRef.current
-        if (previous && measured > previous * BASELINE_SPIKE_FACTOR) {
-          pushLog(
-            `Baseline spike detected (${measured.toFixed(4)}). Reusing previous value ${previous.toFixed(4)}.`,
-          )
-          baselineToUse = previous
-        } else {
+
+      // Only calibrate on first turn or if we don't have a baseline yet
+      // Skip calibration on subsequent turns to reduce lag
+      if (!baselineRef.current) {
+        updateMachineState('calibrating')
+        pushLog('Calibrating microphone baseline')
+        try {
+          const measured = clampBaseline(await calibrateRMS(0.5))
           baselineToUse = measured
           baselineRef.current = measured
           pushLog(`Baseline ready: ${measured.toFixed(4)}`)
-        }
-      } catch (err) {
-        const previous = baselineRef.current
-        if (previous) {
-          baselineToUse = previous
-          pushLog(`Baseline calibration failed. Reusing previous value ${previous.toFixed(4)}.`)
-        } else {
+        } catch (err) {
           baselineToUse = DEFAULT_BASELINE
           pushLog(`Baseline calibration failed. Using default value ${baselineToUse.toFixed(4)}.`)
         }
+      } else {
+        pushLog(`Using cached baseline: ${baselineToUse.toFixed(4)}`)
       }
 
       updateMachineState('recording')
@@ -1808,7 +1800,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
             if (!finishRequestedRef.current && !fatalErrorRef.current && !startupErrorRef.current) {
               runTurnLoop().catch(() => {})
             }
-          }, 700)
+          }, 50)
         }
       }
     } catch (error) {

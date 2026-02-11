@@ -400,39 +400,20 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      if (candidateQuestion) {
-        const normalizedCandidate = normalizeQuestion(candidateQuestion)
-        if (
-          normalizedCandidate &&
-          memory.askedQuestions.some((question) => normalizeQuestion(question) === normalizedCandidate)
-        ) {
-          candidateQuestion = fallbackQuestion
-        }
-      }
-
+      // Trust the AI's response - only use fallback if completely empty
       let reply = rawReply
-      if (candidateQuestion) {
-        reply = reply && !reply.includes(candidateQuestion) ? `${reply} ${candidateQuestion}`.trim() : reply || candidateQuestion
-      } else if (fallbackSuggestion) {
-        reply = reply ? `${reply} ${fallbackSuggestion}`.trim() : fallbackSuggestion
+
+      // If AI included a separate question field and it's not already in the reply, append it
+      if (candidateQuestion && reply && !reply.includes(candidateQuestion)) {
+        reply = `${reply} ${candidateQuestion}`.trim()
       }
 
+      // Only fall back to generic response if AI returned nothing
       if (!reply) {
-        reply = fallbackReply
+        reply = "I'm listening. Please continue whenever you're ready."
       }
 
       reply = reply.trim()
-
-      const extractedQuestions = extractAskedQuestions(reply)
-      const normalizedFinalQuestion = extractedQuestions.length
-        ? normalizeQuestion(extractedQuestions[extractedQuestions.length - 1])
-        : ''
-      if (
-        normalizedFinalQuestion &&
-        memory.askedQuestions.some((question) => normalizeQuestion(question) === normalizedFinalQuestion)
-      ) {
-        reply = reply.includes(fallbackQuestion) ? reply : `${reply} ${fallbackQuestion}`.trim()
-      }
       logDiagnostic('log', 'ask-audio:provider:success', {
         providerStatus,
         providerError: providerErrorMessage,

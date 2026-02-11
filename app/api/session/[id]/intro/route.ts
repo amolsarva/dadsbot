@@ -244,10 +244,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       const parsed = JSON.parse(cleaned)
       if (parsed && typeof parsed.message === 'string') {
         message = parsed.message.trim()
+        // Include the question from the AI response if present
         if (parsed.question && typeof parsed.question === 'string') {
-          const normalized = normalizeQuestion(parsed.question)
-          if (normalized && askedQuestions.some((question) => normalizeQuestion(question) === normalized)) {
-            message = `${message} ${fallbackQuestion}`.trim()
+          const q = parsed.question.trim()
+          if (q && !message.includes(q)) {
+            message = `${message} ${q}`.trim()
           }
         }
       }
@@ -255,18 +256,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       message = txt.trim()
     }
 
-    if (!message || !message.includes('?')) {
-      message = `${message ? `${message} ` : ''}${fallbackQuestion}`.trim()
-    }
-
+    // Only use fallback if AI completely failed to respond
     if (!message) {
-      logIntro('error', 'session-intro:google:fallback-empty', {
+      logIntro('error', 'session-intro:google:empty-response', {
         sessionId,
         providerStatus,
         providerError: providerErrorMessage,
         providerResponseSnippet,
       })
-      return NextResponse.json({ ok: true, message: fallbackMessage, fallback: true, debug })
+      // Simple, honest fallback - no forced question
+      const simpleFallback = previousSessions.length > 0
+        ? "Welcome back. I'm ready to continue whenever you are. What would you like to talk about?"
+        : "Hi, I'm DadsBot. I'm here to help you capture and preserve your family stories. What memory would you like to share?"
+      return NextResponse.json({ ok: true, message: simpleFallback, fallback: true, debug })
     }
 
     logIntro('log', 'session-intro:google:success', {
