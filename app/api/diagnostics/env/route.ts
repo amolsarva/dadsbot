@@ -32,7 +32,7 @@ type CheckOutcome = {
   strictFailure: boolean
 }
 
-const looksLikeUUID = (v?: string) => !!v && /^[0-9a-fA-F-]{32,}$/.test(v)
+const _looksLikeUUID = (v?: string) => !!v && /^[0-9a-fA-F-]{32,}$/.test(v)
 const looksLikeURL = (v?: string) => !!v && /^https?:\/\//.test(v)
 const looksLikeToken = (v?: string) => !!v && v.trim().length > 20
 const looksLikeEmail = (v?: string) => !!v && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)

@@ -1452,9 +1452,9 @@ export function getSessionMemorySnapshot(
   })
 
   const currentRaw = focusSessionId ? filtered.find((session) => session.id === focusSessionId) : undefined
-  const sessions = filtered.map(({ normalized_handle, ...rest }) => rest as SessionMemorySnapshot)
+  const sessions = filtered.map(({ normalized_handle: _nh, ...rest }) => rest as SessionMemorySnapshot)
   const current = currentRaw
-    ? (({ normalized_handle, ...rest }) => rest as SessionMemorySnapshot)(currentRaw)
+    ? (({ normalized_handle: _nh, ...rest }) => rest as SessionMemorySnapshot)(currentRaw)
     : undefined
 
   return { current, sessions }
@@ -1483,7 +1483,7 @@ export function __dangerousResetMemoryState() {
   primerLoadPromises.clear()
 }
 
-async function fetchSessionManifest(sessionId: string): Promise<ManifestLookup | null> {
+async function _fetchSessionManifest(sessionId: string): Promise<ManifestLookup | null> {
   const timestamp = diagnosticTimestamp()
   logDiagnostic('log', 'session:manifest:fetch:start', { sessionId })
   try {

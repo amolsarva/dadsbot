@@ -285,7 +285,7 @@ export async function deleteBlobsByPrefix(prefix: string): Promise<number> {
   const paths = list.blobs.map((blob) => blob.pathname)
   logBlobDiagnostic('log', 'supabase-delete-prefix:start', { bucket, prefix: normalized, count: paths.length })
   if (!paths.length) return 0
-  const { data } = await executeWithRecovery('delete-prefix', bucket, normalized, () => client.storage.from(bucket).remove(paths))
+  const { data: _data } = await executeWithRecovery('delete-prefix', bucket, normalized, () => client.storage.from(bucket).remove(paths))
   logBlobDiagnostic('log', 'supabase-delete-prefix:success', { bucket, deleted: paths.length })
   return paths.length
 }

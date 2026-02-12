@@ -563,8 +563,8 @@ export function Home({ userHandle }: { userHandle?: string }) {
   const displayHandle = userHandle?.trim() || null
   const router = useRouter()
   const diagnosticsHref = buildScopedPath('/diagnostics', normalizedHandle)
-  const historyHref = buildScopedPath('/history', normalizedHandle)
-  const settingsHref = buildScopedPath('/settings', normalizedHandle)
+  const _historyHref = buildScopedPath('/history', normalizedHandle)
+  const _settingsHref = buildScopedPath('/settings', normalizedHandle)
   const [handleInput, setHandleInput] = useState(displayHandle ?? '')
   const [knownHandles, setKnownHandles] = useState<string[]>([])
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
@@ -1367,6 +1367,24 @@ export function Home({ userHandle }: { userHandle?: string }) {
         recMeta = { started: false, stopReason: 'record_error' }
       }
       const manualStopDuringTurn = manualStopRef.current
+      if (recDuration < 100 && !recMeta.started) {
+        pushLog(`No voice detected (${Math.round(recDuration)}ms) — returning to ready state.`)
+        diagnosticSynopsis = {
+          text: '',
+          turn: currentTurnNumber,
+          at: new Date().toISOString(),
+          isEmpty: true,
+          reason: manualStopDuringTurn ? 'manual_stop' : 'no_voice_detected',
+          meta: { ...recMeta, manualStop: manualStopDuringTurn },
+          provider: null,
+        }
+        publishTranscriptSynopsis(diagnosticSynopsis)
+        manualStopRef.current = false
+        setManualStopRequested(false)
+        inTurnRef.current = false
+        updateMachineState('readyToContinue')
+        return
+      }
       if (recDuration < 100) {
         pushLog(`Warning: captured very short audio (${Math.round(recDuration)}ms).`)
         const detailParts = [
@@ -1382,9 +1400,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
           isEmpty: true,
           reason: manualStopDuringTurn
             ? 'manual_stop'
-            : recMeta.started
-            ? 'short_audio'
-            : 'no_voice_detected',
+            : 'short_audio',
           meta: { ...recMeta, manualStop: manualStopDuringTurn },
           provider: null,
         }
