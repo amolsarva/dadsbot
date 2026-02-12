@@ -23,6 +23,9 @@ type Row = {
   title: string | null
   status: string
   total_turns: number
+  duration_ms?: number
+  summary?: string
+  topic_tags?: string[]
 
   artifacts: {
     transcript_txt?: string | null
@@ -34,6 +37,18 @@ type Row = {
   manifestUrl?: string | null
   firstAudioUrl?: string | null
   sessionAudioUrl?: string | null
+}
+
+function formatDuration(ms: number): string {
+  if (!ms || ms <= 0) return ''
+  const totalSeconds = Math.round(ms / 1000)
+  if (totalSeconds < 60) return `${totalSeconds}s`
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  if (minutes < 60) return seconds ? `${minutes}m ${seconds}s` : `${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+  return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`
 }
 
 type HistoryViewProps = {
@@ -272,6 +287,9 @@ export function HistoryView({ userHandle }: HistoryViewProps) {
                       {s.status === 'in_progress' ? 'In Progress' : s.status === 'completed' ? 'Complete' : s.status}
                     </span>
                   </div>
+                  {s.summary ? (
+                    <p className="history-summary">{s.summary}</p>
+                  ) : null}
                   <div className="history-meta">
                     <span className="history-date">
                       {new Date(s.created_at).toLocaleDateString('en-US', {
@@ -280,23 +298,36 @@ export function HistoryView({ userHandle }: HistoryViewProps) {
                         day: 'numeric',
                       })}
                     </span>
-                    <span className="history-separator">•</span>
+                    {s.duration_ms && s.duration_ms > 0 ? (
+                      <>
+                        <span className="history-separator">&middot;</span>
+                        <span className="history-duration">{formatDuration(s.duration_ms)}</span>
+                      </>
+                    ) : null}
+                    <span className="history-separator">&middot;</span>
                     <span className="history-turns">
                       {s.total_turns} {s.total_turns === 1 ? 'turn' : 'turns'}
                     </span>
-                    {s.artifacts?.session_audio && (
+                    {s.artifacts?.session_audio ? (
                       <>
-                        <span className="history-separator">•</span>
+                        <span className="history-separator">&middot;</span>
                         <span className="history-has-audio">🎙️ Audio</span>
                       </>
-                    )}
-                    {s.artifacts?.transcript_txt && (
+                    ) : null}
+                    {s.artifacts?.transcript_txt ? (
                       <>
-                        <span className="history-separator">•</span>
+                        <span className="history-separator">&middot;</span>
                         <span className="history-has-transcript">📄 Transcript</span>
                       </>
-                    )}
+                    ) : null}
                   </div>
+                  {s.topic_tags && s.topic_tags.length > 0 ? (
+                    <div className="history-tags">
+                      {s.topic_tags.map(tag => (
+                        <span key={tag} className="history-tag">{tag}</span>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
 
                 {expandedSessions.has(s.id) && (

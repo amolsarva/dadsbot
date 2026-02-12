@@ -1029,6 +1029,36 @@ input[type="checkbox"] {
   font-size: 12px;
 }
 
+.history-summary {
+  margin: 4px 0 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink);
+  opacity: 0.78;
+}
+
+.history-duration {
+  font-variant-numeric: tabular-nums;
+}
+
+.history-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.history-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 12px;
+  background: rgba(243, 203, 165, 0.35);
+  color: var(--accent-deep);
+  border: 1px solid rgba(243, 203, 165, 0.6);
+}
+
 .history-empty {
   background: rgba(255, 247, 237, 0.86);
   border: 1px dashed rgba(243, 203, 165, 0.8);
