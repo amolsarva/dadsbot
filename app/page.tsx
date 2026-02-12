@@ -21,6 +21,7 @@ import {
 import { readDefaultNotifyEmailClient } from '@/lib/default-notify-email.client'
 import { maskEmail } from '@/lib/default-notify-email.shared'
 import { TopicProgress } from '@/components/topic-progress'
+import { ServiceStatusGrid } from '@/components/service-status-grid'
 import { VoiceDebug, VoiceDebugEntry, createVoiceDebugEntry } from '@/components/voice-debug'
 
 const HARD_TURN_LIMIT_MS = 90_000
@@ -600,7 +601,6 @@ export function Home({ userHandle }: { userHandle?: string }) {
     [],
   )
   const machineState = useInterviewMachine((state) => state.state)
-  const debugLog = useInterviewMachine((state) => state.debugLog)
   const pushLog = useInterviewMachine((state) => state.pushLog)
   const toDone = useInterviewMachine((state) => state.toDone)
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -2546,21 +2546,8 @@ export function Home({ userHandle }: { userHandle?: string }) {
         </div>
       </div>
 
-      <div className="panel-card diagnostics-card">
-        <div className="diagnostics-head">
-          <span>Diagnostics log</span>
-          <a className="diagnostics-link" href={diagnosticsHref}>
-            Open
-          </a>
-        </div>
-        <textarea value={debugLog.join('\n')} readOnly rows={6} className="diagnostics-log" />
-        <div className="page-subtext">
-          Need more detail?{' '}
-          <a className="link" href={diagnosticsHref}>
-            Visit Diagnostics
-          </a>
-          .
-        </div>
+      <div className="panel-card">
+        <ServiceStatusGrid diagnosticsHref={diagnosticsHref} />
       </div>
 
       {/* Voice synthesis debug log - shows at bottom of screen */}

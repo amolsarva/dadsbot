@@ -650,6 +650,95 @@ textarea.diagnostics-log {
   color: #0a5f38;
 }
 
+/* Compact service status grid */
+.service-grid {
+  padding: 0;
+}
+
+.service-grid__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.service-grid__title {
+  text-transform: uppercase;
+  letter-spacing: 0.32em;
+  font-size: 11px;
+  color: rgba(115, 74, 43, 0.72);
+}
+
+.service-grid__link {
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-deep);
+  text-decoration: none;
+}
+
+.service-grid__link:hover {
+  color: #0a5f38;
+}
+
+.service-grid__items {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+@media (max-width: 480px) {
+  .service-grid__items {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.service-grid__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.service-grid__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.service-grid__dot--checking {
+  background: var(--muted);
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+.service-grid__dot--ok {
+  background: #22c55e;
+}
+
+.service-grid__dot--warning {
+  background: #f59e0b;
+}
+
+.service-grid__dot--error {
+  background: #ef4444;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.service-grid__label {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 .diagnostics-panel {
   width: 100%;
   max-width: 860px;
