@@ -14,6 +14,7 @@ import {
   getIntroQuestion,
 } from '@/lib/fallback-texts'
 import { resolveGoogleModel } from '@/lib/google'
+import { getDigest, formatDigestForContext } from '@/lib/conversation-digest'
 
 const INTRO_SYSTEM_PROMPT = `You are DadsBot, a warm and curious conversation partner helping someone capture their family stories and life memories.
 
@@ -246,6 +247,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   try {
     const { historyText, questionText, suggestedTopics } = buildHistorySummary(titles, details, askedQuestions, primerText)
     const parts: any[] = [{ text: INTRO_SYSTEM_PROMPT }]
+    const digest = await getDigest(current.user_handle ?? null).catch(() => null)
+    const digestText = formatDigestForContext(digest)
+    if (digestText) {
+      parts.push({ text: digestText })
+    }
     if (primerText.trim().length) {
       parts.push({ text: `Memory primer:\n${primerText.slice(0, 6000)}` })
     }

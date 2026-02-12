@@ -6,6 +6,7 @@ import { generateSessionTitle, SummarizableTurn } from './session-title'
 import { formatSessionTitleFallback } from './fallback-texts'
 import { normalizeHandle } from './user-scope'
 import { resolveDefaultNotifyEmailServer } from './default-notify-email.server'
+import { updateDigestAfterSession } from './conversation-digest'
 import {
   deleteSessionRecord,
   fetchAllSessions,
@@ -1074,12 +1075,13 @@ export async function finalizeSession(
   } else if ('skipped' in emailStatus && emailStatus.skipped) {
     s.status = 'completed'
   } else {
-    s.status = 'error'
+    // Email failed but session data is complete — mark as completed, not error
+    s.status = 'completed'
     flagFox({
       id: 'theory-4-email-status-error',
       theory: 4,
       level: 'warn',
-      message: 'Session marked as error because summary email failed.',
+      message: 'Email send failed but session marked completed (data is intact).',
       details: { sessionId: s.id, emailStatus },
     })
   }
@@ -1109,6 +1111,23 @@ export async function finalizeSession(
       error: describeError(err),
     })
   })
+
+  // Build cumulative AI-powered conversation digest
+  const digestTurns = (s.turns || [])
+    .filter(t => t.text && t.text.trim().length > 0)
+    .map(t => ({ role: t.role, text: t.text! }))
+  if (digestTurns.length > 0) {
+    await updateDigestAfterSession(s.user_handle, s.id, digestTurns, {
+      date: s.created_at,
+      turnCount: s.total_turns,
+      durationMs: s.duration_ms,
+    }).catch((err) => {
+      logDiagnostic('error', 'digest:update:failure', {
+        handle: normalizeHandle(s.user_handle ?? undefined) ?? 'unassigned',
+        error: describeError(err),
+      })
+    })
+  }
 
   const emailed = !!('ok' in emailStatus && emailStatus.ok)
   return { ok: true, session: s, emailed, emailStatus }

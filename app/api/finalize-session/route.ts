@@ -363,13 +363,14 @@ export async function POST(req: NextRequest) {
     } else if ('skipped' in emailStatus && emailStatus.skipped) {
       await mergeSessionArtifacts(sessionId, { status: 'completed' })
     } else {
-      await mergeSessionArtifacts(sessionId, { status: 'error' })
+      // Email failed but session data is complete — mark as completed, not error
+      await mergeSessionArtifacts(sessionId, { status: 'completed' })
 
       flagFox({
         id: 'theory-4-email-status-error-api',
         theory: 4,
         level: 'warn',
-        message: 'Session marked error in finalize-session API because email failed.',
+        message: 'Email send failed but session marked completed (data is intact).',
         details: { sessionId, emailStatus },
       })
     }

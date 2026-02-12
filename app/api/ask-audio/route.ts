@@ -10,6 +10,7 @@ import {
 } from '@/lib/question-memory'
 import { detectCompletionIntent } from '@/lib/intents'
 import { resolveGoogleModel } from '@/lib/google'
+import { getDigest, formatDigestForContext } from '@/lib/conversation-digest'
 import {
   getAskFirstSessionGreeting,
   formatAskReturningWithHighlight,
@@ -133,6 +134,7 @@ type MemoryPrompt = {
   highlightDetail?: string
   primerText: string
   primerHandle: string | null
+  digestText: string
   hasPriorSessions: boolean
   hasCurrentConversation: boolean
 }
@@ -189,6 +191,7 @@ async function buildMemoryPrompt(sessionId: string | undefined): Promise<MemoryP
       askedQuestions: [],
       primerText: '',
       primerHandle: null,
+      digestText: '',
       highlightDetail: undefined,
       hasPriorSessions: false,
       hasCurrentConversation: false,
@@ -201,6 +204,8 @@ async function buildMemoryPrompt(sessionId: string | undefined): Promise<MemoryP
   const primerHandle = current?.user_handle ?? null
   const primer = await getMemoryPrimer(primerHandle)
   const primerText = primer.text ? primer.text.trim() : ''
+  const digest = await getDigest(primerHandle).catch(() => null)
+  const digestText = formatDigestForContext(digest)
 
   const historyLines: string[] = []
   const priorSessions = sessions.filter((session) => session.id !== sessionId)
@@ -247,6 +252,7 @@ async function buildMemoryPrompt(sessionId: string | undefined): Promise<MemoryP
     highlightDetail,
     primerText,
     primerHandle,
+    digestText,
     hasPriorSessions,
     hasCurrentConversation,
   }
@@ -338,6 +344,9 @@ export async function POST(req: NextRequest) {
 
     const primerSnippet = memory.primerText ? memory.primerText.slice(0, 6000) : ''
     const parts: any[] = [{ text: SYSTEM_PROMPT }]
+    if (memory.digestText) {
+      parts.push({ text: memory.digestText })
+    }
     if (primerSnippet) {
       parts.push({ text: `Memory primer:\n${primerSnippet}` })
     }
