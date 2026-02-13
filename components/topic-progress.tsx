@@ -117,7 +117,7 @@ export function TopicProgress({ userHandle }: TopicProgressProps) {
               {isExpanded && topic.snippets.length > 0 && (
                 <div className="topic-meter__snippets">
                   {topic.snippets.map((snippet, i) => (
-                    <div key={i} className="topic-meter__snippet">"{snippet}"</div>
+                    <div key={i} className="topic-meter__snippet">&ldquo;{snippet}&rdquo;</div>
                   ))}
                 </div>
               )}

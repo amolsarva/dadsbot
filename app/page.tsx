@@ -21,6 +21,7 @@ import {
 import { readDefaultNotifyEmailClient } from '@/lib/default-notify-email.client'
 import { maskEmail } from '@/lib/default-notify-email.shared'
 import { TopicProgress } from '@/components/topic-progress'
+import { ServiceStatusGrid } from '@/components/service-status-grid'
 import { VoiceDebug, VoiceDebugEntry, createVoiceDebugEntry } from '@/components/voice-debug'
 
 const HARD_TURN_LIMIT_MS = 90_000
@@ -563,8 +564,8 @@ export function Home({ userHandle }: { userHandle?: string }) {
   const displayHandle = userHandle?.trim() || null
   const router = useRouter()
   const diagnosticsHref = buildScopedPath('/diagnostics', normalizedHandle)
-  const historyHref = buildScopedPath('/history', normalizedHandle)
-  const settingsHref = buildScopedPath('/settings', normalizedHandle)
+  const _historyHref = buildScopedPath('/history', normalizedHandle)
+  const _settingsHref = buildScopedPath('/settings', normalizedHandle)
   const [handleInput, setHandleInput] = useState(displayHandle ?? '')
   const [knownHandles, setKnownHandles] = useState<string[]>([])
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
@@ -600,7 +601,6 @@ export function Home({ userHandle }: { userHandle?: string }) {
     [],
   )
   const machineState = useInterviewMachine((state) => state.state)
-  const debugLog = useInterviewMachine((state) => state.debugLog)
   const pushLog = useInterviewMachine((state) => state.pushLog)
   const toDone = useInterviewMachine((state) => state.toDone)
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -1070,28 +1070,36 @@ export function Home({ userHandle }: { userHandle?: string }) {
         const mime = typeof data.mime === 'string' ? data.mime : 'audio/mpeg'
         let durationMs = 0
         const recorder = recorderRef.current
+        let playbackStartFired = false
+        const firePlaybackStart = () => {
+          if (playbackStartFired) return
+          playbackStartFired = true
+          if (options?.onPlaybackStart) {
+            try {
+              options.onPlaybackStart()
+            } catch {}
+          }
+        }
         if (recorder) {
           try {
             logVoiceEvent('openai', 'Starting AudioContext playback via SessionRecorder')
-            if (options?.onPlaybackStart) {
-              try {
-                options.onPlaybackStart()
-              } catch {}
-            }
             const playback = await recorder.playAssistantBase64(data.audioBase64, mime)
+            firePlaybackStart()
             durationMs = playback?.durationMs ?? 0
             logVoiceEvent('openai', `AudioContext playback completed (${durationMs}ms)`)
           } catch (err: any) {
             logVoiceEvent('error', `AudioContext playback failed: ${err?.message || 'unknown'}, falling back to browser`)
             pushLog('Recorder playback failed, falling back to direct audio')
+            // Stop any partial SessionRecorder playback before falling back
+            try { recorder.skipPlayback() } catch {}
             durationMs = await playWithAudioElement(data.audioBase64, mime, {
-              onStart: options?.onPlaybackStart,
+              onStart: firePlaybackStart,
             })
           }
         } else {
           logVoiceEvent('system', 'No SessionRecorder available, using browser Audio element')
           durationMs = await playWithAudioElement(data.audioBase64, mime, {
-            onStart: options?.onPlaybackStart,
+            onStart: firePlaybackStart,
           })
         }
         return { base64: data.audioBase64, mime, durationMs }
@@ -1359,6 +1367,24 @@ export function Home({ userHandle }: { userHandle?: string }) {
         recMeta = { started: false, stopReason: 'record_error' }
       }
       const manualStopDuringTurn = manualStopRef.current
+      if (recDuration < 100 && !recMeta.started) {
+        pushLog(`No voice detected (${Math.round(recDuration)}ms) — returning to ready state.`)
+        diagnosticSynopsis = {
+          text: '',
+          turn: currentTurnNumber,
+          at: new Date().toISOString(),
+          isEmpty: true,
+          reason: manualStopDuringTurn ? 'manual_stop' : 'no_voice_detected',
+          meta: { ...recMeta, manualStop: manualStopDuringTurn },
+          provider: null,
+        }
+        publishTranscriptSynopsis(diagnosticSynopsis)
+        manualStopRef.current = false
+        setManualStopRequested(false)
+        inTurnRef.current = false
+        updateMachineState('readyToContinue')
+        return
+      }
       if (recDuration < 100) {
         pushLog(`Warning: captured very short audio (${Math.round(recDuration)}ms).`)
         const detailParts = [
@@ -1374,9 +1400,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
           isEmpty: true,
           reason: manualStopDuringTurn
             ? 'manual_stop'
-            : recMeta.started
-            ? 'short_audio'
-            : 'no_voice_detected',
+            : 'short_audio',
           meta: { ...recMeta, manualStop: manualStopDuringTurn },
           provider: null,
         }
@@ -2272,6 +2296,10 @@ export function Home({ userHandle }: { userHandle?: string }) {
 
   return (
     <main className="home-main">
+      <div className="panel-card topic-progress-card">
+        <TopicProgress userHandle={normalizedHandle} />
+      </div>
+
       <div className="panel-card hero-card">
         <div className="account-switcher" ref={accountSwitcherRef}>
           <button
@@ -2518,25 +2546,8 @@ export function Home({ userHandle }: { userHandle?: string }) {
         </div>
       </div>
 
-      <div className="panel-card topic-progress-card">
-        <TopicProgress userHandle={normalizedHandle} />
-      </div>
-
-      <div className="panel-card diagnostics-card">
-        <div className="diagnostics-head">
-          <span>Diagnostics log</span>
-          <a className="diagnostics-link" href={diagnosticsHref}>
-            Open
-          </a>
-        </div>
-        <textarea value={debugLog.join('\n')} readOnly rows={6} className="diagnostics-log" />
-        <div className="page-subtext">
-          Need more detail?{' '}
-          <a className="link" href={diagnosticsHref}>
-            Visit Diagnostics
-          </a>
-          .
-        </div>
+      <div className="panel-card">
+        <ServiceStatusGrid diagnosticsHref={diagnosticsHref} />
       </div>
 
       {/* Voice synthesis debug log - shows at bottom of screen */}

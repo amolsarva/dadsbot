@@ -13,20 +13,36 @@ const TOPIC_DEFINITIONS = [
   { id: 'wisdom', label: 'Wisdom & Advice', keywords: [/advice/i, /lesson/i, /wisdom/i, /regret/i, /proud/i, /hope/i, /legacy/i, /message/i], icon: '💡' },
 ]
 
-type TopicProgress = {
+type TopicProgressResult = {
   id: string
   label: string
   icon: string
   mentions: number
+  snippets: string[]
 }
 
-function countTopicMentions(text: string): TopicProgress[] {
+function splitSentences(text: string): string[] {
+  return text
+    .replace(/[\r\n]+/g, ' ')
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 12)
+}
+
+function countTopicMentions(text: string): TopicProgressResult[] {
+  const sentences = splitSentences(text)
   return TOPIC_DEFINITIONS.map((topic) => {
     let count = 0
+    const matched: string[] = []
     for (const keyword of topic.keywords) {
       const matches = text.match(new RegExp(keyword, 'gi'))
-      if (matches) {
-        count += matches.length
+      if (matches) count += matches.length
+    }
+    for (const sentence of sentences) {
+      if (matched.length >= 3) break
+      if (topic.keywords.some(kw => kw.test(sentence))) {
+        const trimmed = sentence.length > 140 ? sentence.slice(0, 139) + '\u2026' : sentence
+        matched.push(trimmed)
       }
     }
     return {
@@ -34,6 +50,7 @@ function countTopicMentions(text: string): TopicProgress[] {
       label: topic.label,
       icon: topic.icon,
       mentions: count,
+      snippets: matched,
     }
   })
 }

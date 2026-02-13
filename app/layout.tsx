@@ -52,8 +52,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const commitSha = deploymentMetadata.commitRef ?? ''
   const commitMessage = deploymentMetadata.commitMessage ?? 'commit message unavailable'
   const commitTimestamp = deploymentMetadata.commitTimestamp
-  const repoOwner = deploymentMetadata.repo.owner ?? ''
-  const repoSlug = deploymentMetadata.repo.name ?? ''
+  const _repoOwner = deploymentMetadata.repo.owner ?? ''
+  const _repoSlug = deploymentMetadata.repo.name ?? ''
 
   const shortSha = commitSha ? commitSha.slice(0, 7) : deploymentMetadata.deployId.slice(0, 7)
 
