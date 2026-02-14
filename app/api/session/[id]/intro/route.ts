@@ -4,6 +4,7 @@ import {
   getHydrationDiagnostics,
   getMemoryPrimer,
   getSessionMemorySnapshot,
+  getSession,
 } from '@/lib/data'
 import { primeNetlifyBlobContextFromHeaders } from '@/lib/blob'
 import { collectAskedQuestions, findLatestUserDetails, normalizeQuestion, pickFallbackQuestion } from '@/lib/question-memory'
@@ -186,7 +187,27 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     logIntro('log', 'session-intro:hydration:already-complete', { sessionId, hydration: hydrationBefore })
   }
 
-  const { current, sessions } = getSessionMemorySnapshot(sessionId)
+  let { current, sessions } = getSessionMemorySnapshot(sessionId)
+
+  // If session not found in memory, try fetching directly from database
+  // This handles race conditions where session was just created
+  if (!current) {
+    try {
+      logIntro('log', 'session-intro:not-in-memory:fetching-from-db', { sessionId })
+      const freshSession = await getSession(sessionId)
+      if (freshSession) {
+        current = freshSession
+        sessions = [freshSession]
+        logIntro('log', 'session-intro:recovered-from-db', { sessionId })
+      }
+    } catch (err) {
+      logIntro('log', 'session-intro:db-fetch-failed', {
+        sessionId,
+        error: err instanceof Error ? err.message : 'unknown',
+      })
+    }
+  }
+
   if (!current) {
     const hydration = getHydrationDiagnostics()
     logIntro('error', 'session-intro:session-not-found', {
