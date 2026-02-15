@@ -2447,3 +2447,8 @@ input[type="checkbox"] {
   padding-top: 450px;
   position: relative;
 }
+
+/* History Tab Profile Section */
+.history-tab__profile-section {
+  margin-bottom: 40px;
+}

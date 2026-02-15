@@ -26,6 +26,7 @@ import { ChatTab } from '@/components/tabs/chat-tab'
 import { HistoryTab } from '@/components/tabs/history-tab'
 import { SettingsTab } from '@/components/tabs/settings-tab'
 import { EndOfSessionReflection } from '@/components/end-of-session-reflection'
+import { FloatingVoiceRecorder } from '@/components/floating-voice-recorder'
 
 const HARD_TURN_LIMIT_MS = 90_000
 const DEFAULT_BASELINE = 0.004
@@ -2340,6 +2341,52 @@ export function Home({ userHandle }: { userHandle?: string }) {
 
   return (
     <main className="home-main">
+      {/* Floating Voice Recorder - stays fixed while tabs change */}
+      <FloatingVoiceRecorder
+        sessionId={sessionId}
+        machineState={machineState}
+        turn={turn}
+        hasStarted={hasStarted}
+        finishRequested={finishRequested}
+        audioLevel={audioLevel}
+        providerError={providerError}
+        startupError={startupError}
+        startupDetails={startupDetails}
+        fatalError={fatalError}
+        fatalDetails={fatalDetails}
+        handleHeroPress={handleHeroPress}
+        requestFinish={requestFinish}
+        requestManualStop={requestManualStop}
+        heroButtonClasses={heroButtonClasses}
+        heroStyles={heroStyles}
+        heroAriaLabel={heroAriaLabel}
+        heroIcon={heroIcon}
+        heroBadge={heroBadge}
+        heroTitle={heroTitle}
+        heroDescription={heroDescription}
+        heroDisabled={heroDisabled}
+        statusMessage={statusMessage}
+        showSkipButton={showSkipButton}
+        statusHint={statusHint}
+        diagnosticsHref={diagnosticsHref}
+        onStartAgain={() => {
+          try {
+            recorderRef.current?.cancel()
+          } catch {}
+          recorderRef.current = null
+          sessionAudioUrlRef.current = null
+          sessionAudioDurationRef.current = 0
+          conversationRef.current = []
+          setHasStarted(false)
+          setTurn(0)
+          setFinishRequested(false)
+          finishRequestedRef.current = false
+          manualStopRef.current = false
+          setManualStopRequested(false)
+          updateMachineState('idle')
+        }}
+      />
+
       <header className="home-header">
         <div className="account-switcher" ref={accountSwitcherRef}>
           <button
@@ -2523,7 +2570,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
           />
         )}
         {activeTab === 'history' && (
-          <HistoryTab handle={normalizedHandle} />
+          <HistoryTab handle={normalizedHandle} currentSessionId={sessionId} />
         )}
         {activeTab === 'settings' && (
           <SettingsTab handle={normalizedHandle} />
