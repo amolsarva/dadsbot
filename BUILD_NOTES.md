@@ -114,3 +114,20 @@ Check `ENV_KEYS.txt` and `docs/env-audit.txt` for the required set.
 
 When in doubt, treat every ESLint warning as a build-breaking error, because
 on Vercel it is.
+
+---
+
+## Monitoring Vercel Deployments
+
+**Public Deployment Dashboard:**
+https://vercel.com/amolsarva/dadsbot/deployments
+
+Use this link to:
+- ✅ View real-time build logs
+- ✅ Check deployment status (✓ successful, ✗ failed, ⏳ building)
+- ✅ Review TypeScript/ESLint errors
+- ✅ Compare against previous deployments
+- ✅ Identify which commits triggered builds
+
+**Pro tip:** After pushing to GitHub, Vercel will automatically start a build.
+Check this dashboard immediately to catch build errors before they go to production.
