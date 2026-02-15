@@ -76,7 +76,7 @@ const logClientDiagnostic = (
 ) => {
   const timestamp = new Date().toISOString()
   const entry = { ...formatClientPersistenceContext(), ...(payload ?? {}) }
-  const message = `[diagnostic] ${timestamp} client:${event} ${JSON.stringify(entry)}`
+  const _message = `[diagnostic] ${timestamp} client:${event} ${JSON.stringify(entry)}`
   // Diagnostic logging disabled - status shown in service grid instead
 }
 
@@ -117,12 +117,12 @@ async function extractResponseError(response: Response) {
   }
 }
 
-const formatSessionEnvSummary = () => ({
+const _formatSessionEnvSummary = () => ({
   NEXT_PUBLIC_DEFAULT_NOTIFY_EMAIL: process.env.NEXT_PUBLIC_DEFAULT_NOTIFY_EMAIL ?? null,
   DEFAULT_NOTIFY_EMAIL: process.env.DEFAULT_NOTIFY_EMAIL ?? null,
 })
 
-const logSessionDiagnostic = (level: 'log' | 'error', message: string, detail?: unknown) => {
+const logSessionDiagnostic = (_level: 'log' | 'error', _message: string, _detail?: unknown) => {
   // Diagnostic logging disabled - status shown in service grid instead
 }
 
@@ -1015,7 +1015,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
               .then(() => {
                 ensureStarted()
               })
-              .catch((err) => {
+              .catch((_err) => {
                 resolve(0)
               })
           } else {
@@ -1089,7 +1089,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
         throw (err instanceof Error ? err : new Error(reason || 'tts_failed'))
       }
     },
-    [logVoiceEvent, playWithAudioElement, pushLog],
+    [playWithAudioElement, pushLog],
   )
 
   const finalizeNow = useCallback(async () => {
