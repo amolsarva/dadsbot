@@ -1,8 +1,14 @@
 import './globals.css'
 import React from 'react'
+import type { Metadata } from 'next'
 import { buildDefaultNotifyEmailBootstrapScript } from '@/lib/default-notify-email.server'
 import { buildDeploymentBootstrapScript, resolveDeploymentMetadata } from '@/lib/deployment-metadata.server'
 import { SiteNav } from './site-nav'
+
+export const metadata: Metadata = {
+  title: 'Dadsbot',
+  description: 'Record life stories and create lasting memories',
+}
 
 type LogLevel = 'log' | 'error'
 
