@@ -624,10 +624,11 @@ button.hero-button .hero-button__badge {
   font-size: 12px;
   font-weight: 600;
   color: var(--ink);
-  background: rgba(217, 119, 6, 0.25);
+  background: rgba(10, 20, 40, 0.85);
+  border: 1px solid rgba(217, 119, 6, 0.6);
   border-radius: 999px;
   padding: 6px 18px;
-  box-shadow: 0 8px 20px rgba(217, 119, 6, 0.2);
+  box-shadow: 0 8px 20px rgba(217, 119, 6, 0.3);
 }
 
 button.hero-button .hero-button__title {
@@ -2367,4 +2368,82 @@ input[type="checkbox"] {
 .reflection-action {
   font-size: var(--font-sm);
   min-width: 100px;
+}
+
+/* ============================================================================
+   Floating Voice Recorder Widget
+   ============================================================================ */
+
+.floating-voice-recorder {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 50;
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.floating-voice-recorder--active {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.floating-voice-recorder__container {
+  max-width: 600px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.floating-voice-recorder__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+}
+
+.floating-voice-recorder__alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.floating-voice-recorder__alerts::-webkit-scrollbar {
+  width: 6px;
+}
+
+.floating-voice-recorder__alerts::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.floating-voice-recorder__alerts::-webkit-scrollbar-thumb {
+  background: rgba(217, 119, 6, 0.3);
+  border-radius: 3px;
+}
+
+.floating-voice-recorder__alerts::-webkit-scrollbar-thumb:hover {
+  background: rgba(217, 119, 6, 0.5);
+}
+
+/* Ensure tab content has padding-top to avoid being hidden under floating recorder */
+.tab-content {
+  padding-top: 450px;
+  position: relative;
 }
