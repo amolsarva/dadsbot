@@ -4,27 +4,28 @@
 
 :root {
   color-scheme: light;
-  /* Dark professional theme with Indian flag accents */
-  --bg: #0f172a;              /* Very dark navy-blue */
-  --bg-accent: #1e293b;       /* Slightly lighter navy */
-  --bg-ribbon: #0f172a;       /* Match main bg */
-  --card: #1e293b;            /* Card background */
+  /* Luxe Heritage: Warm midnight blue with earthy saffron & forest green */
+  --bg: #0a1428;              /* Warm midnight blue (not cold navy) */
+  --bg-accent: #141c28;       /* Slightly lighter, warm undertone */
+  --bg-ribbon: #0a1428;       /* Match main bg */
+  --card: #141c28;            /* Card background - warm navy */
 
-  /* Foreground - bright for contrast on dark */
-  --ink: #f1f5f9;             /* Near white text */
+  /* Foreground - soft white (not harsh) */
+  --ink: #f8f9fa;             /* Soft white text */
   --muted: #94a3b8;           /* Gray for secondary text */
 
-  /* Accents - brightened for dark mode */
-  --accent: #fbbf24;          /* Bright golden amber (saffron) */
+  /* Accents - Warm, sophisticated Indian heritage */
+  --accent: #d97706;          /* Earthy warm saffron (not neon gold) */
   --accent-quiet: #fef3c7;    /* Light amber background */
-  --accent-deep: #4ade80;     /* Bright green */
-  --accent-navy: #60a5fa;     /* Bright blue */
+  --accent-deep: #065f46;     /* Deep forest green (not electric) */
+  --accent-tertiary: #92400e; /* Rich heritage gold for premium elements */
+  --accent-navy: #3b82f6;     /* Blue for secondary accents */
 
   /* UI Elements */
-  --border: #334155;          /* Subtle border in dark mode */
-  --ring-saffron: #fbbf24;    /* Golden focus ring */
-  --ring-green: #4ade80;      /* Green focus ring */
-  --shadow: rgba(0, 0, 0, 0.4);
+  --border: #1f2937;          /* Warmer border color */
+  --ring-saffron: #d97706;    /* Warm earthy focus ring */
+  --ring-green: #065f46;      /* Deep green focus ring */
+  --shadow: rgba(0, 0, 0, 0.5);
 
   /* Typography Scale */
   --font-xs: 12px;            /* Captions, badges */
@@ -1080,11 +1081,11 @@ input[type="checkbox"] {
 }
 
 .history-item {
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid rgba(243, 203, 165, 0.7);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 18px;
   padding: 18px;
-  box-shadow: 0 18px 36px rgba(83, 39, 9, 0.12);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.3);
 }
 
 .history-item-header {
@@ -1151,8 +1152,7 @@ input[type="checkbox"] {
   margin: 4px 0 0 0;
   font-size: 14px;
   line-height: 1.45;
-  color: var(--ink);
-  opacity: 0.78;
+  color: var(--muted);
 }
 
 .history-duration {
@@ -1172,19 +1172,19 @@ input[type="checkbox"] {
   font-weight: 600;
   padding: 2px 10px;
   border-radius: 12px;
-  background: rgba(243, 203, 165, 0.35);
-  color: var(--accent-deep);
-  border: 1px solid rgba(243, 203, 165, 0.6);
+  background: rgba(6, 95, 70, 0.2);
+  color: #7ee8c6;
+  border: 1px solid rgba(6, 95, 70, 0.4);
 }
 
 .history-empty {
-  background: rgba(255, 247, 237, 0.86);
-  border: 1px dashed rgba(243, 203, 165, 0.8);
+  background: rgba(20, 28, 40, 0.6);
+  border: 1px dashed var(--border);
   border-radius: 18px;
   padding: 20px;
   color: var(--muted);
   font-size: 14px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  box-shadow: none;
 }
 
 .history-page {

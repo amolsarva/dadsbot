@@ -23,7 +23,6 @@ export function SiteNav() {
       { href: buildScopedPath('/', handle), label: 'Home' },
       { href: buildScopedPath('/history', handle), label: 'History' },
       { href: buildScopedPath('/settings', handle), label: 'Settings' },
-      { href: buildScopedPath('/diagnostics', handle), label: 'Diagnostics' },
     ],
     [handle],
   )

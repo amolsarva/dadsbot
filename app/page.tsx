@@ -960,6 +960,17 @@ export function Home({ userHandle }: { userHandle?: string }) {
     }
   }, [])
 
+  const playDoneDetectingSound = useCallback(async () => {
+    if (typeof window === 'undefined') return
+    try {
+      const audio = new Audio('/sounds/done.wav')
+      audio.volume = 0.3
+      await audio.play()
+    } catch (err) {
+      /* Silently fail - audio not critical */
+    }
+  }, [])
+
   const ensureSessionRecorder = useCallback(async () => {
     if (typeof window === 'undefined') return null
     if (!recorderRef.current) {
@@ -1348,6 +1359,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
       const manualStopDuringTurn = manualStopRef.current
       if (recDuration < 100 && !recMeta.started) {
         pushLog(`No voice detected (${Math.round(recDuration)}ms) — returning to ready state.`)
+        await playDoneDetectingSound()
         diagnosticSynopsis = {
           text: '',
           turn: currentTurnNumber,
@@ -1387,6 +1399,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
       manualStopRef.current = false
       setManualStopRequested(false)
       pushLog('Recording stopped → thinking')
+      await playDoneDetectingSound()
       updateMachineState('thinking')
 
       let askRes: AskResponse | null = null
@@ -2133,6 +2146,35 @@ export function Home({ userHandle }: { userHandle?: string }) {
       playReadySound()
     }
   }, [machineState, hasStarted, playReadySound])
+
+  // Typing detection during voice recording
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only trigger if actively recording
+      if (machineState !== 'recording') return
+
+      // Ignore modifier-only keys (Ctrl, Alt, Shift, Cmd, etc)
+      const modifierKeys = ['Control', 'Alt', 'Shift', 'Meta', 'AltGraph']
+      if (modifierKeys.includes(event.key)) return
+
+      // Don't stop if user is pressing Escape (might be trying to close something)
+      if (event.key === 'Escape') return
+
+      // User typed something - stop voice recording gracefully
+      pushLog('Typing detected → stopping voice recording')
+      requestManualStop()
+    }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('keydown', handleKeyDown)
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('keydown', handleKeyDown)
+      }
+    }
+  }, [machineState, requestManualStop, pushLog])
 
   const handleHeroPress = useCallback(() => {
     if (startupError || fatalError) return
