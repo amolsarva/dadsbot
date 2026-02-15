@@ -23,6 +23,33 @@ npm run build
 
 ---
 
+## ⚠️ MANDATORY Pre-commit Checklist (AI Agent Template)
+
+**Before creating ANY commit, verify ALL of these:**
+
+- [ ] **Unused variables**: Prefix with `_` (e.g., `_data`, `_unused`, `_err`)
+  - Search for ESLint warnings: `no-unused-vars`
+  - Vercel will **fail the build** if missed
+
+- [ ] **Correct dependency arrays**: Every `useCallback` and `useEffect` dependency is:
+  - [ ] Actually used in the function body
+  - [ ] Not referencing undefined variables
+  - [ ] Only includes external state that needs tracking
+  - Example: `[playWithAudioElement, pushLog]` NOT `[logVoiceEvent, playWithAudioElement, pushLog]` if `logVoiceEvent` is unused
+
+- [ ] **Unescaped entities in JSX**: No curly quotes, apostrophes, or `>` without escaping
+  - Use: `&ldquo;`, `&apos;`, `&gt;` or wrap in `{...}` expressions
+
+- [ ] **No TypeScript type mismatches**: Especially with optional/nullable types
+  - `SessionRecord` vs `SessionMemorySnapshot` — ensure turns is always an array
+
+- [ ] **All imports are used**: Remove unused imports
+  - Vercel fails on unused imports too
+
+**If ANY of these fail in Vercel logs, fix and commit again — don't skip the checklist.**
+
+---
+
 ## Common Vercel build failures
 
 ### 1. Unescaped entities in JSX (`react/no-unescaped-entities`)
