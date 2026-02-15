@@ -25,6 +25,7 @@ import { ServiceStatusGrid } from '@/components/service-status-grid'
 import { ChatTab } from '@/components/tabs/chat-tab'
 import { HistoryTab } from '@/components/tabs/history-tab'
 import { SettingsTab } from '@/components/tabs/settings-tab'
+import { EndOfSessionReflection } from '@/components/end-of-session-reflection'
 
 const HARD_TURN_LIMIT_MS = 90_000
 const DEFAULT_BASELINE = 0.004
@@ -606,6 +607,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
   const [fatalError, setFatalError] = useState<string | null>(null)
   const [fatalDetails, setFatalDetails] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState<'chat' | 'history' | 'settings'>('chat')
+  const [showReflection, setShowReflection] = useState(false)
   const inTurnRef = useRef(false)
   const manualStopRef = useRef(false)
   const recorderRef = useRef<SessionRecorder | null>(null)
@@ -2180,6 +2182,17 @@ export function Home({ userHandle }: { userHandle?: string }) {
     }
   }, [machineState, requestManualStop, pushLog])
 
+  // Show reflection modal when session completes
+  useEffect(() => {
+    if (machineState === 'doneSuccess' && hasStarted && !showReflection) {
+      // Delay showing reflection slightly so user sees the success state first
+      const timer = setTimeout(() => {
+        setShowReflection(true)
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [machineState, hasStarted, showReflection])
+
   const handleHeroPress = useCallback(() => {
     if (startupError || fatalError) return
     if (machineState === 'recording') {
@@ -2516,6 +2529,45 @@ export function Home({ userHandle }: { userHandle?: string }) {
           <SettingsTab handle={normalizedHandle} />
         )}
       </div>
+
+      {/* End-of-Session Reflection Modal */}
+      {showReflection && (
+        <EndOfSessionReflection
+          sessionId={sessionId || ''}
+          handle={normalizedHandle}
+          personProfile={null} // TODO: Fetch from session when available
+          topicProgress={[]} // TODO: Calculate from session when available
+          totalTurns={turn}
+          onSave={() => {
+            // Save session and close reflection
+            setShowReflection(false)
+            setActiveTab('chat')
+          }}
+          onContinue={() => {
+            // Close reflection but keep session active
+            setShowReflection(false)
+          }}
+          onStartNew={() => {
+            // Reset session and close reflection
+            setShowReflection(false)
+            try {
+              recorderRef.current?.cancel()
+            } catch {}
+            recorderRef.current = null
+            sessionAudioUrlRef.current = null
+            sessionAudioDurationRef.current = 0
+            conversationRef.current = []
+            setHasStarted(false)
+            setTurn(0)
+            setFinishRequested(false)
+            finishRequestedRef.current = false
+            manualStopRef.current = false
+            setManualStopRequested(false)
+            updateMachineState('idle')
+            setActiveTab('chat')
+          }}
+        />
+      )}
     </main>
   )
 }
