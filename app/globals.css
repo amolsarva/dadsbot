@@ -452,8 +452,8 @@ button.link-button:disabled {
 
 button.hero-button {
   --hero-accent: var(--accent);
-  --hero-gradient: linear-gradient(135deg, rgba(251, 191, 36, 0.25), rgba(30, 41, 59, 0) 48%, rgba(74, 222, 128, 0.20));
-  --hero-glow: rgba(251, 191, 36, 0.32);
+  --hero-gradient: linear-gradient(135deg, rgba(217, 119, 6, 0.15), rgba(20, 28, 40, 0) 48%, rgba(6, 95, 70, 0.12));
+  --hero-glow: rgba(217, 119, 6, 0.25);
   position: relative;
   width: min(360px, 75vw);
   aspect-ratio: 1;
@@ -472,7 +472,7 @@ button.hero-button {
 
 button.hero-button:hover {
   border-color: var(--accent);
-  box-shadow: 0 4px 16px rgba(255, 153, 51, 0.2);
+  box-shadow: 0 4px 16px rgba(217, 119, 6, 0.3);
 }
 
 button.hero-button::before {
@@ -480,8 +480,8 @@ button.hero-button::before {
   position: absolute;
   inset: -6px;
   border-radius: 999px;
-  background: conic-gradient(from 0deg, var(--ring-saffron) 0deg, var(--ring-saffron) 120deg, #ffffff 120deg, #ffffff 240deg, var(--ring-green) 240deg, var(--ring-green) 360deg);
-  opacity: 0.25;
+  background: conic-gradient(from 0deg, var(--ring-saffron) 0deg, var(--ring-saffron) 120deg, rgba(217, 119, 6, 0.3) 120deg, rgba(217, 119, 6, 0.3) 240deg, var(--ring-green) 240deg, var(--ring-green) 360deg);
+  opacity: 0.4;
   z-index: 0;
 }
 
@@ -512,7 +512,7 @@ button.hero-button .hero-button__dot {
   height: 40px;
   border-radius: 999px;
   background: var(--accent);
-  box-shadow: 0 4px 12px rgba(255, 153, 51, 0.3);
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.4);
   z-index: 0;
   transform: translate(-50%, -50%);
   top: 50%;
@@ -523,7 +523,7 @@ button.hero-button .hero-button__level {
   position: absolute;
   inset: 8%;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(255, 153, 51, 0.25) 0%, rgba(255, 153, 51, 0.05) 70%, transparent 100%);
+  background: radial-gradient(circle, rgba(217, 119, 6, 0.2) 0%, rgba(217, 119, 6, 0.05) 70%, transparent 100%);
   z-index: 1;
   pointer-events: none;
   transition: transform 0.08s ease-out, opacity 0.08s ease-out;
@@ -553,10 +553,10 @@ button.hero-button .hero-button__badge {
   font-size: 12px;
   font-weight: 600;
   color: var(--accent-deep);
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(6, 95, 70, 0.15);
   border-radius: 999px;
   padding: 6px 18px;
-  box-shadow: 0 8px 20px rgba(74, 222, 128, 0.12);
+  box-shadow: 0 8px 20px rgba(6, 95, 70, 0.15);
 }
 
 button.hero-button .hero-button__title {
@@ -573,11 +573,11 @@ button.hero-button .hero-button__description {
 }
 
 button.hero-button:hover {
-  box-shadow: 0 24px 60px rgba(83, 39, 9, 0.22);
+  box-shadow: 0 24px 60px rgba(217, 119, 6, 0.2);
 }
 
 button.hero-button:focus-visible {
-  outline: 3px solid rgba(255, 153, 51, 0.32);
+  outline: 3px solid rgba(217, 119, 6, 0.4);
   outline-offset: 6px;
 }
 
