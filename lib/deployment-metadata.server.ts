@@ -134,7 +134,11 @@ export function resolveDeploymentMetadata(): DeploymentMetadata {
   }
 
   const commitRef = process.env.COMMIT_REF ?? process.env.GIT_COMMIT_SHA ?? null
-  const commitMessage = process.env.COMMIT_MESSAGE ?? process.env.GIT_COMMIT_MESSAGE ?? null
+  const commitMessage =
+    process.env.COMMIT_MESSAGE ??
+    process.env.GIT_COMMIT_MESSAGE ??
+    process.env.VERCEL_GIT_COMMIT_MESSAGE ??
+    null
   const commitTimestamp = process.env.COMMIT_TIMESTAMP ?? process.env.GIT_COMMIT_TIMESTAMP ?? null
   const branch = process.env.BRANCH ?? process.env.HEAD ?? null
   const siteId = process.env.NETLIFY_SITE_ID ?? process.env.SITE_ID ?? null

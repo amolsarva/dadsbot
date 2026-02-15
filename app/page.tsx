@@ -949,6 +949,17 @@ export function Home({ userHandle }: { userHandle?: string }) {
     }
   }, [stopAutoAdvance])
 
+  const playReadySound = useCallback(async () => {
+    if (typeof window === 'undefined') return
+    try {
+      const audio = new Audio('/sounds/bing.wav')
+      audio.volume = 0.3
+      await audio.play()
+    } catch (err) {
+      /* Silently fail - audio not critical */
+    }
+  }, [])
+
   const ensureSessionRecorder = useCallback(async () => {
     if (typeof window === 'undefined') return null
     if (!recorderRef.current) {
@@ -2117,6 +2128,12 @@ export function Home({ userHandle }: { userHandle?: string }) {
     startSession().catch(() => {})
   }, [fatalError, hasStarted, sessionId, startSession, startupError])
 
+  useEffect(() => {
+    if (machineState === 'readyToContinue' && hasStarted) {
+      playReadySound()
+    }
+  }, [machineState, hasStarted, playReadySound])
+
   const handleHeroPress = useCallback(() => {
     if (startupError || fatalError) return
     if (machineState === 'recording') {
@@ -2264,10 +2281,6 @@ export function Home({ userHandle }: { userHandle?: string }) {
 
   return (
     <main className="home-main">
-      <div className="panel-card topic-progress-card">
-        <TopicProgress userHandle={normalizedHandle} />
-      </div>
-
       <div className="panel-card hero-card">
         <div className="account-switcher" ref={accountSwitcherRef}>
           <button
@@ -2512,6 +2525,10 @@ export function Home({ userHandle }: { userHandle?: string }) {
             </button>
           )}
         </div>
+      </div>
+
+      <div className="panel-card topic-progress-card">
+        <TopicProgress userHandle={normalizedHandle} />
       </div>
 
       <div className="panel-card">

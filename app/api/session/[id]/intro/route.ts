@@ -192,18 +192,45 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // If session not found in memory, try fetching directly from database
   // This handles race conditions where session was just created
   if (!current) {
-    try {
-      logIntro('log', 'session-intro:not-in-memory:fetching-from-db', { sessionId })
-      const freshSession = await getSession(sessionId)
-      if (freshSession) {
-        current = freshSession
-        sessions = [freshSession]
-        logIntro('log', 'session-intro:recovered-from-db', { sessionId })
+    const maxRetries = 1
+    let lastError: Error | null = null
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        logIntro('log', 'session-intro:not-in-memory:fetching-from-db', {
+          sessionId,
+          attempt: attempt + 1,
+          maxAttempts: maxRetries + 1,
+        })
+        const freshSession = await getSession(sessionId)
+        if (freshSession) {
+          current = freshSession
+          sessions = [freshSession]
+          logIntro('log', 'session-intro:recovered-from-db', {
+            sessionId,
+            recoveryAttempt: attempt + 1,
+          })
+          break
+        }
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error('Unknown error')
+        if (attempt < maxRetries) {
+          // Wait before retrying with exponential backoff
+          await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, attempt)))
+          logIntro('log', 'session-intro:db-fetch-retry', {
+            sessionId,
+            attempt: attempt + 1,
+            nextRetryMs: 100 * Math.pow(2, attempt + 1),
+          })
+        }
       }
-    } catch (err) {
-      logIntro('log', 'session-intro:db-fetch-failed', {
+    }
+
+    if (!current && lastError) {
+      logIntro('log', 'session-intro:db-fetch-exhausted', {
         sessionId,
-        error: err instanceof Error ? err.message : 'unknown',
+        finalError: lastError.message,
+        attemptsExhausted: true,
       })
     }
   }
