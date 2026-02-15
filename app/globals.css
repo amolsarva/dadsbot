@@ -2021,3 +2021,78 @@ input[type="checkbox"] {
 .voice-debug__message {
   color: #ffffff;
 }
+
+/* ============================================================================
+   Person Profile Summary Component
+   ============================================================================ */
+
+.person-profile-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.08) 0%, rgba(6, 95, 70, 0.05) 100%);
+  border: 1px solid rgba(217, 119, 6, 0.2);
+  border-radius: 12px;
+}
+
+.person-profile-summary--loading,
+.person-profile-summary--empty {
+  opacity: 0.6;
+  text-align: center;
+}
+
+.person-profile-summary__title {
+  margin: 0;
+  font-size: var(--font-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--accent);
+  letter-spacing: 0.5px;
+}
+
+.person-profile-summary__divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--accent), transparent);
+  opacity: 0.4;
+}
+
+.person-profile-summary__facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.person-profile-summary__facts li {
+  padding-left: 20px;
+  position: relative;
+  color: var(--ink);
+  font-size: var(--font-sm);
+  line-height: 1.6;
+}
+
+.person-profile-summary__facts li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: bold;
+}
+
+.person-profile-summary__meta {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: right;
+}
+
+.person-profile-summary__empty-message {
+  color: var(--muted);
+  margin: 0;
+  font-size: var(--font-sm);
+}
