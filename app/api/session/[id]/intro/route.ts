@@ -204,8 +204,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         })
         const freshSession = await getSession(sessionId)
         if (freshSession) {
-          current = freshSession
-          sessions = [freshSession]
+          current = {
+            ...freshSession,
+            turns: Array.isArray(freshSession.turns) ? freshSession.turns : [],
+          }
+          sessions = [current]
           logIntro('log', 'session-intro:recovered-from-db', {
             sessionId,
             recoveryAttempt: attempt + 1,
