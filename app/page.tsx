@@ -1026,7 +1026,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
         }
       })
     },
-    [logVoiceEvent],
+    [],
   )
 
   const playAssistantResponse = useCallback(
