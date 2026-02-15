@@ -18,6 +18,11 @@ export function SiteNav() {
   const pathname = usePathname()
   const handle = useMemo(() => deriveHandleFromPath(pathname), [pathname])
 
+  // Don't show site-nav on scoped routes (they have their own tabs now)
+  if (handle) {
+    return null
+  }
+
   const links = useMemo(
     () => [
       { href: buildScopedPath('/', handle), label: 'Home' },

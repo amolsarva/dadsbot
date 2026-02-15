@@ -22,6 +22,9 @@ import { readDefaultNotifyEmailClient } from '@/lib/default-notify-email.client'
 import { maskEmail } from '@/lib/default-notify-email.shared'
 import { TopicProgress } from '@/components/topic-progress'
 import { ServiceStatusGrid } from '@/components/service-status-grid'
+import { ChatTab } from '@/components/tabs/chat-tab'
+import { HistoryTab } from '@/components/tabs/history-tab'
+import { SettingsTab } from '@/components/tabs/settings-tab'
 
 const HARD_TURN_LIMIT_MS = 90_000
 const DEFAULT_BASELINE = 0.004
@@ -602,6 +605,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
   const [startupDetails, setStartupDetails] = useState<string[]>([])
   const [fatalError, setFatalError] = useState<string | null>(null)
   const [fatalDetails, setFatalDetails] = useState<string[]>([])
+  const [activeTab, setActiveTab] = useState<'chat' | 'history' | 'settings'>('chat')
   const inTurnRef = useRef(false)
   const manualStopRef = useRef(false)
   const recorderRef = useRef<SessionRecorder | null>(null)
@@ -2323,7 +2327,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
 
   return (
     <main className="home-main">
-      <div className="panel-card hero-card">
+      <header className="home-header">
         <div className="account-switcher" ref={accountSwitcherRef}>
           <button
             type="button"
@@ -2431,152 +2435,87 @@ export function Home({ userHandle }: { userHandle?: string }) {
             </div>
           ) : null}
         </div>
-        {providerError && (
-          <div className="alert-banner alert-banner--error" role="alert">
-            <div className="alert-banner__title">
-              ⚠️ Trouble reaching Google
-              {providerErrorStatusLabel ? ` · ${providerErrorStatusLabel}` : ''}
-            </div>
-            <div className="alert-banner__message">{providerError.message}</div>
-            <div className="alert-banner__meta">
-              Captured {providerErrorTimestamp || 'time unknown'} · Reason:{' '}
-              {providerError.reason ? providerError.reason.replace(/_/g, ' ') : 'unspecified'} ·{' '}
-              <a className="link" href={diagnosticsHref}>
-                Review diagnostics
-              </a>
-            </div>
-            {providerError.snippet && (
-              <pre className="alert-banner__snippet">{providerError.snippet}</pre>
-            )}
-          </div>
+        <nav className="home-tabs">
+          <button
+            type="button"
+            className={`home-tabs__button${activeTab === 'chat' ? ' home-tabs__button--active' : ''}`}
+            onClick={() => setActiveTab('chat')}
+          >
+            Chat
+          </button>
+          <button
+            type="button"
+            className={`home-tabs__button${activeTab === 'history' ? ' home-tabs__button--active' : ''}`}
+            onClick={() => setActiveTab('history')}
+          >
+            History
+          </button>
+          <button
+            type="button"
+            className={`home-tabs__button${activeTab === 'settings' ? ' home-tabs__button--active' : ''}`}
+            onClick={() => setActiveTab('settings')}
+          >
+            Settings
+          </button>
+        </nav>
+      </header>
+
+      <div className="tab-content">
+        {activeTab === 'chat' && (
+          <ChatTab
+            normalizedHandle={normalizedHandle}
+            sessionId={sessionId}
+            machineState={machineState}
+            turn={turn}
+            hasStarted={hasStarted}
+            finishRequested={finishRequested}
+            audioLevel={audioLevel}
+            providerError={providerError}
+            startupError={startupError}
+            startupDetails={startupDetails}
+            fatalError={fatalError}
+            fatalDetails={fatalDetails}
+            recorderRef={recorderRef}
+            handleHeroPress={handleHeroPress}
+            requestFinish={requestFinish}
+            requestManualStop={requestManualStop}
+            heroButtonClasses={heroButtonClasses}
+            heroStyles={heroStyles}
+            heroAriaLabel={heroAriaLabel}
+            heroIcon={heroIcon}
+            heroBadge={heroBadge}
+            heroTitle={heroTitle}
+            heroDescription={heroDescription}
+            heroDisabled={heroDisabled}
+            statusMessage={statusMessage}
+            showSkipButton={showSkipButton}
+            statusHint={statusHint}
+            diagnosticsHref={diagnosticsHref}
+            onStartAgain={() => {
+              try {
+                recorderRef.current?.cancel()
+              } catch {}
+              recorderRef.current = null
+              sessionAudioUrlRef.current = null
+              sessionAudioDurationRef.current = 0
+              conversationRef.current = []
+              setHasStarted(false)
+              setTurn(0)
+              setFinishRequested(false)
+              finishRequestedRef.current = false
+              manualStopRef.current = false
+              setManualStopRequested(false)
+              updateMachineState('idle')
+            }}
+          />
         )}
-        {startupError && (
-          <div className="alert-banner alert-banner--error" role="alert">
-            <div className="alert-banner__title">🚫 Startup blocked</div>
-            <div className="alert-banner__message">{startupError}</div>
-            {startupDetails.length ? (
-              <div className="alert-banner__details">
-                {startupDetails.map((detail, index) => (
-                  <div key={`startup-detail-${index}`}>• {detail}</div>
-                ))}
-              </div>
-            ) : null}
-            <div className="alert-banner__meta">
-              <a className="link" href={diagnosticsHref}>
-                Open diagnostics
-              </a>
-            </div>
-          </div>
+        {activeTab === 'history' && (
+          <HistoryTab handle={normalizedHandle} />
         )}
-        {fatalError && (
-          <div className="alert-banner alert-banner--error" role="alert">
-            <div className="alert-banner__title">🛑 Session halted</div>
-            <div className="alert-banner__message">{fatalError}</div>
-            {fatalDetails.length ? (
-              <div className="alert-banner__details">
-                {fatalDetails.map((detail, index) => (
-                  <div key={`fatal-detail-${index}`}>• {detail}</div>
-                ))}
-              </div>
-            ) : null}
-            <div className="alert-banner__meta">
-              <a className="link" href={diagnosticsHref}>
-                Review diagnostics
-              </a>
-            </div>
-          </div>
+        {activeTab === 'settings' && (
+          <SettingsTab handle={normalizedHandle} />
         )}
-        <button
-          type="button"
-          onClick={handleHeroPress}
-          className={heroButtonClasses.join(' ')}
-          aria-label={heroAriaLabel}
-          style={{
-            ...heroStyles,
-            '--audio-level': machineState === 'recording' ? Math.min(audioLevel / 5, 1) : 0,
-          } as CSSProperties}
-          disabled={heroDisabled}
-        >
-          <span className="hero-button__gradient" aria-hidden="true" />
-          <span className="hero-button__pulse" aria-hidden="true" />
-          <span className="hero-button__dot" aria-hidden="true" />
-          {machineState === 'recording' && (
-            <span
-              className="hero-button__level"
-              aria-hidden="true"
-              style={{
-                transform: `scale(${1 + audioLevel * 0.08})`,
-                opacity: Math.min(0.2 + audioLevel * 0.08, 0.7),
-              }}
-            />
-          )}
-          <span className="hero-button__content">
-            <span className="hero-button__icon" aria-hidden="true">
-              {heroIcon}
-            </span>
-            <span className="hero-button__badge">{heroBadge}</span>
-            <span className="hero-button__title">{heroTitle}</span>
-            <span className="hero-button__description">{heroDescription}</span>
-          </span>
-        </button>
-
-        <div className="status-block">
-          <div className="status-text">{statusMessage}</div>
-          {showSkipButton ? (
-            <div className="status-actions">
-              <button
-                type="button"
-                onClick={requestManualStop}
-                className="btn-secondary btn-large status-skip"
-              >
-                ⏭ Next question
-              </button>
-            </div>
-          ) : null}
-          {statusHint ? <div className="status-hint">{statusHint}</div> : null}
-          {machineState === 'doneSuccess' ? (
-            <button
-              onClick={() => {
-                try {
-                  recorderRef.current?.cancel()
-                } catch {}
-                recorderRef.current = null
-                sessionAudioUrlRef.current = null
-                sessionAudioDurationRef.current = 0
-                conversationRef.current = []
-                setHasStarted(false)
-                setTurn(0)
-                setFinishRequested(false)
-                finishRequestedRef.current = false
-                manualStopRef.current = false
-                setManualStopRequested(false)
-                updateMachineState('idle')
-              }}
-              className="btn-secondary btn-large"
-            >
-              Start Again
-            </button>
-          ) : null}
-          {machineState !== 'doneSuccess' && (
-            <button
-              onClick={requestFinish}
-              disabled={heroDisabled || !hasStarted || finishRequested}
-              className="btn-outline"
-            >
-              I’m finished
-            </button>
-          )}
-        </div>
       </div>
-
-      <div className="panel-card topic-progress-card">
-        <TopicProgress userHandle={normalizedHandle} />
-      </div>
-
-      <div className="panel-card">
-        <ServiceStatusGrid diagnosticsHref={diagnosticsHref} />
-      </div>
-
     </main>
   )
 }

@@ -180,6 +180,77 @@ a:hover {
   align-items: center;
 }
 
+.home-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 600px;
+  gap: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.home-tabs {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.home-tabs__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 16px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.home-tabs__button:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.home-tabs__button--active {
+  color: var(--ink);
+  background: rgba(217, 119, 6, 0.15);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.home-tabs__button--active:hover {
+  background: rgba(217, 119, 6, 0.25);
+}
+
+.tab-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 28px;
+  align-items: center;
+}
+
+.chat-tab,
+.history-tab,
+.settings-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  align-items: center;
+  width: 100%;
+}
+
 .hero-card {
   display: flex;
   flex-direction: column;
