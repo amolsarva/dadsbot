@@ -2524,49 +2524,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
         {activeTab === 'chat' && (
           <ChatTab
             normalizedHandle={normalizedHandle}
-            sessionId={sessionId}
-            machineState={machineState}
-            turn={turn}
-            hasStarted={hasStarted}
-            finishRequested={finishRequested}
-            audioLevel={audioLevel}
-            providerError={providerError}
-            startupError={startupError}
-            startupDetails={startupDetails}
-            fatalError={fatalError}
-            fatalDetails={fatalDetails}
-            recorderRef={recorderRef}
-            handleHeroPress={handleHeroPress}
-            requestFinish={requestFinish}
-            requestManualStop={requestManualStop}
-            heroButtonClasses={heroButtonClasses}
-            heroStyles={heroStyles}
-            heroAriaLabel={heroAriaLabel}
-            heroIcon={heroIcon}
-            heroBadge={heroBadge}
-            heroTitle={heroTitle}
-            heroDescription={heroDescription}
-            heroDisabled={heroDisabled}
-            statusMessage={statusMessage}
-            showSkipButton={showSkipButton}
-            statusHint={statusHint}
             diagnosticsHref={diagnosticsHref}
-            onStartAgain={() => {
-              try {
-                recorderRef.current?.cancel()
-              } catch {}
-              recorderRef.current = null
-              sessionAudioUrlRef.current = null
-              sessionAudioDurationRef.current = 0
-              conversationRef.current = []
-              setHasStarted(false)
-              setTurn(0)
-              setFinishRequested(false)
-              finishRequestedRef.current = false
-              manualStopRef.current = false
-              setManualStopRequested(false)
-              updateMachineState('idle')
-            }}
           />
         )}
         {activeTab === 'history' && (
