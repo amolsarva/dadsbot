@@ -53,9 +53,10 @@ function formatDuration(ms: number): string {
 
 type HistoryViewProps = {
   userHandle?: string
+  onSessionsLoaded?: (mostRecentSessionId: string | null) => void
 }
 
-export function HistoryView({ userHandle }: HistoryViewProps) {
+export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) {
   const normalizedPropHandle = normalizeHandle(userHandle)
   const [rows, setRows] = useState<Row[]>([])
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -120,10 +121,13 @@ export function HistoryView({ userHandle }: HistoryViewProps) {
         return bTime - aTime
       })
       setRows(sorted)
+      // Call callback with the most recent session ID if available
+      onSessionsLoaded?.(sorted.length > 0 ? sorted[0].id : null)
     } catch {
       setRows([])
+      onSessionsLoaded?.(null)
     }
-  }, [resolveHandle])
+  }, [resolveHandle, onSessionsLoaded])
 
   useEffect(() => {
     loadHistory()
