@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerClient } from '@/lib/supabase.server'
+import { getSupabaseSessionClient } from '@/lib/session-store'
 import { PersonProfile } from '@/lib/person-facts'
 
 /**
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const supabase = await getServerClient()
+    const supabase = getSupabaseSessionClient()
 
     // Fetch the session record from Supabase
     const sessionsTable = process.env.SUPABASE_SESSIONS_TABLE

@@ -1,5 +1,3 @@
-'use server'
-
 /**
  * Person profile extraction from conversation
  *
