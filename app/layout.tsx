@@ -3,7 +3,7 @@ import React from 'react'
 import type { Metadata } from 'next'
 import { buildDefaultNotifyEmailBootstrapScript } from '@/lib/default-notify-email.server'
 import { buildDeploymentBootstrapScript, resolveDeploymentMetadata } from '@/lib/deployment-metadata.server'
-import { SiteNav } from './site-nav'
+// Site-wide nav links removed — in-page tabs handle navigation now
 
 export const metadata: Metadata = {
   title: 'Dadsbot',
@@ -95,7 +95,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="site-shell">
           <header className="site-header">
             <h1 className="site-title">DadsBot</h1>
-            <SiteNav />
           </header>
           <div className="panel-section">{children}</div>
           <footer className="site-footer">

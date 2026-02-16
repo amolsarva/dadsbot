@@ -2351,12 +2351,8 @@ input[type="checkbox"] {
 .floating-voice-recorder {
   width: 100%;
   max-width: 600px;
-  display: none;
-  justify-content: center;
-}
-
-.floating-voice-recorder--active {
   display: flex;
+  justify-content: center;
 }
 
 .floating-voice-recorder__container {
