@@ -4,6 +4,7 @@ import {
   getHydrationDiagnostics,
   getMemoryPrimer,
   getSessionMemorySnapshot,
+  getSession,
 } from '@/lib/data'
 import { primeNetlifyBlobContextFromHeaders } from '@/lib/blob'
 import { collectAskedQuestions, findLatestUserDetails, normalizeQuestion, pickFallbackQuestion } from '@/lib/question-memory'
@@ -186,7 +187,57 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     logIntro('log', 'session-intro:hydration:already-complete', { sessionId, hydration: hydrationBefore })
   }
 
-  const { current, sessions } = getSessionMemorySnapshot(sessionId)
+  let { current, sessions } = getSessionMemorySnapshot(sessionId)
+
+  // If session not found in memory, try fetching directly from database
+  // This handles race conditions where session was just created
+  if (!current) {
+    const maxRetries = 1
+    let lastError: Error | null = null
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        logIntro('log', 'session-intro:not-in-memory:fetching-from-db', {
+          sessionId,
+          attempt: attempt + 1,
+          maxAttempts: maxRetries + 1,
+        })
+        const freshSession = await getSession(sessionId)
+        if (freshSession) {
+          current = {
+            ...freshSession,
+            turns: Array.isArray(freshSession.turns) ? freshSession.turns : [],
+          }
+          sessions = [current]
+          logIntro('log', 'session-intro:recovered-from-db', {
+            sessionId,
+            recoveryAttempt: attempt + 1,
+          })
+          break
+        }
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error('Unknown error')
+        if (attempt < maxRetries) {
+          // Wait before retrying with exponential backoff
+          await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, attempt)))
+          logIntro('log', 'session-intro:db-fetch-retry', {
+            sessionId,
+            attempt: attempt + 1,
+            nextRetryMs: 100 * Math.pow(2, attempt + 1),
+          })
+        }
+      }
+    }
+
+    if (!current && lastError) {
+      logIntro('log', 'session-intro:db-fetch-exhausted', {
+        sessionId,
+        finalError: lastError.message,
+        attemptsExhausted: true,
+      })
+    }
+  }
+
   if (!current) {
     const hydration = getHydrationDiagnostics()
     logIntro('error', 'session-intro:session-not-found', {

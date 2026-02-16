@@ -20,9 +20,11 @@ import {
 } from '@/lib/user-scope'
 import { readDefaultNotifyEmailClient } from '@/lib/default-notify-email.client'
 import { maskEmail } from '@/lib/default-notify-email.shared'
-import { TopicProgress } from '@/components/topic-progress'
-import { ServiceStatusGrid } from '@/components/service-status-grid'
-import { VoiceDebug, VoiceDebugEntry, createVoiceDebugEntry } from '@/components/voice-debug'
+import { ChatTab } from '@/components/tabs/chat-tab'
+import { HistoryTab } from '@/components/tabs/history-tab'
+import { SettingsTab } from '@/components/tabs/settings-tab'
+import { EndOfSessionReflection } from '@/components/end-of-session-reflection'
+import { FloatingVoiceRecorder } from '@/components/floating-voice-recorder'
 
 const HARD_TURN_LIMIT_MS = 90_000
 const DEFAULT_BASELINE = 0.004
@@ -77,12 +79,8 @@ const logClientDiagnostic = (
 ) => {
   const timestamp = new Date().toISOString()
   const entry = { ...formatClientPersistenceContext(), ...(payload ?? {}) }
-  const message = `[diagnostic] ${timestamp} client:${event} ${JSON.stringify(entry)}`
-  if (level === 'error') {
-    console.error(message)
-  } else {
-    console.log(message)
-  }
+  const _message = `[diagnostic] ${timestamp} client:${event} ${JSON.stringify(entry)}`
+  // Diagnostic logging disabled - status shown in service grid instead
 }
 
 async function extractResponseError(response: Response) {
@@ -122,20 +120,13 @@ async function extractResponseError(response: Response) {
   }
 }
 
-const formatSessionEnvSummary = () => ({
+const _formatSessionEnvSummary = () => ({
   NEXT_PUBLIC_DEFAULT_NOTIFY_EMAIL: process.env.NEXT_PUBLIC_DEFAULT_NOTIFY_EMAIL ?? null,
   DEFAULT_NOTIFY_EMAIL: process.env.DEFAULT_NOTIFY_EMAIL ?? null,
 })
 
-const logSessionDiagnostic = (level: 'log' | 'error', message: string, detail?: unknown) => {
-  const timestamp = new Date().toISOString()
-  const scope = '[app/page]'
-  const payload = { env: formatSessionEnvSummary(), detail }
-  if (level === 'error') {
-    console.error(`[diagnostic] ${timestamp} ${scope} ${message}`, payload)
-  } else {
-    console.log(`[diagnostic] ${timestamp} ${scope} ${message}`, payload)
-  }
+const logSessionDiagnostic = (_level: 'log' | 'error', _message: string, _detail?: unknown) => {
+  // Diagnostic logging disabled - status shown in service grid instead
 }
 
 const mergeKnownHandles = (values: Array<string | null | undefined>, limit: number = KNOWN_HANDLE_LIMIT) => {
@@ -472,80 +463,80 @@ const STATE_VISUALS: Record<
   }
 > = {
   idle: {
-    icon: '✨',
+    icon: '',
     badge: 'Ready',
-    title: 'Ready to begin',
-    description: 'I’ll start the conversation for you—just settle in and listen.',
+    title: 'Ready',
+    description: 'Press to start',
     tone: {
       accent: '#1b8d55',
       gradient: 'linear-gradient(135deg, rgba(255, 186, 102, 0.3), rgba(255, 247, 237, 0.88), rgba(121, 205, 159, 0.32))',
     },
   },
   calibrating: {
-    icon: '🎚️',
+    icon: '',
     badge: 'Preparing',
-    title: 'Getting ready to listen',
-    description: 'Give me a moment to measure the room noise before I start recording.',
+    title: 'Calibrating',
+    description: 'Calibrating microphone',
     tone: {
       accent: '#0ea5e9',
       gradient: 'linear-gradient(135deg, rgba(125, 211, 161, 0.28), rgba(14, 165, 233, 0.24))',
     },
   },
   recording: {
-    icon: '🎤',
+    icon: '',
     badge: 'Listening',
     title: 'Listening',
-    description: 'I’m capturing every detail you say. Speak naturally and tap the ring when you’d like me to stop listening.',
+    description: 'Listening—speak naturally',
     tone: {
       accent: '#f97316',
       gradient: 'linear-gradient(135deg, rgba(255, 186, 102, 0.3), rgba(255, 247, 237, 0.82), rgba(19, 136, 8, 0.22))',
     },
   },
   thinking: {
-    icon: '🤔',
+    icon: '',
     badge: 'Thinking',
-    title: 'Thinking',
-    description: 'Give me a brief moment while I make sense of what you shared.',
+    title: 'Processing',
+    description: 'Processing…',
     tone: {
       accent: '#9333ea',
       gradient: 'linear-gradient(135deg, rgba(244, 187, 255, 0.28), rgba(190, 227, 248, 0.26))',
     },
   },
   speakingPrep: {
-    icon: '🔄',
-    badge: 'Warming up',
-    title: 'Preparing to speak',
-    description: 'Spinning up my voice so I can respond clearly.',
+    icon: '',
+    badge: 'Preparing',
+    title: 'Preparing',
+    description: 'Preparing response…',
     tone: {
       accent: '#f97316',
       gradient: 'linear-gradient(135deg, rgba(255, 207, 134, 0.34), rgba(255, 247, 237, 0.86))',
     },
   },
   playing: {
-    icon: '💬',
+    icon: '',
     badge: 'Speaking',
     title: 'Speaking',
-    description: 'Sharing what I heard and how we can keep going.',
+    description: 'Speaking',
     tone: {
       accent: '#f97316',
       gradient: 'linear-gradient(135deg, rgba(255, 186, 102, 0.32), rgba(255, 247, 237, 0.86))',
     },
   },
   readyToContinue: {
-    icon: '✨',
+    icon: '',
     badge: 'Ready',
-    title: 'Ready for more',
-    description: 'Just start speaking whenever you’re ready for the next part.',
+    title: 'Ready',
+    description: 'Ready for next question',
     tone: {
       accent: '#1b8d55',
       gradient: 'linear-gradient(135deg, rgba(121, 205, 159, 0.3), rgba(255, 247, 237, 0.8))',
     },
   },
   doneSuccess: {
-    icon: '✅',
+    icon: '',
     badge: 'Complete',
-    title: 'Session complete',
-    description: 'Review your links or start another memory when you feel inspired.',
+    title: 'Complete',
+    description: 'Session saved',
     tone: {
       accent: '#0f7c4b',
       gradient: 'linear-gradient(135deg, rgba(121, 205, 159, 0.26), rgba(255, 247, 237, 0.82))',
@@ -560,7 +551,7 @@ type AssistantPlayback = {
 }
 
 export function Home({ userHandle }: { userHandle?: string }) {
-  const normalizedHandle = normalizeHandle(userHandle)
+  const normalizedHandle = normalizeHandle(userHandle) ?? null
   const displayHandle = userHandle?.trim() || null
   const router = useRouter()
   const diagnosticsHref = buildScopedPath('/diagnostics', normalizedHandle)
@@ -614,7 +605,8 @@ export function Home({ userHandle }: { userHandle?: string }) {
   const [startupDetails, setStartupDetails] = useState<string[]>([])
   const [fatalError, setFatalError] = useState<string | null>(null)
   const [fatalDetails, setFatalDetails] = useState<string[]>([])
-  const [voiceDebugEntries, setVoiceDebugEntries] = useState<VoiceDebugEntry[]>([])
+  const [activeTab, setActiveTab] = useState<'chat' | 'history' | 'settings'>('chat')
+  const [showReflection, setShowReflection] = useState(false)
   const inTurnRef = useRef(false)
   const manualStopRef = useRef(false)
   const recorderRef = useRef<SessionRecorder | null>(null)
@@ -640,10 +632,6 @@ export function Home({ userHandle }: { userHandle?: string }) {
     autoAdvanceTimeoutRef.current = null
   }, [])
 
-  const logVoiceEvent = useCallback((source: VoiceDebugEntry['source'], message: string) => {
-    const entry = createVoiceDebugEntry(source, message)
-    setVoiceDebugEntries((prev) => [...prev.slice(-50), entry])
-  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -966,6 +954,28 @@ export function Home({ userHandle }: { userHandle?: string }) {
     }
   }, [stopAutoAdvance])
 
+  const playReadySound = useCallback(async () => {
+    if (typeof window === 'undefined') return
+    try {
+      const audio = new Audio('/sounds/bing.wav')
+      audio.volume = 0.3
+      await audio.play()
+    } catch (err) {
+      /* Silently fail - audio not critical */
+    }
+  }, [])
+
+  const playDoneDetectingSound = useCallback(async () => {
+    if (typeof window === 'undefined') return
+    try {
+      const audio = new Audio('/sounds/done.wav')
+      audio.volume = 0.3
+      await audio.play()
+    } catch (err) {
+      /* Silently fail - audio not critical */
+    }
+  }, [])
+
   const ensureSessionRecorder = useCallback(async () => {
     if (typeof window === 'undefined') return null
     if (!recorderRef.current) {
@@ -990,7 +1000,6 @@ export function Home({ userHandle }: { userHandle?: string }) {
       },
     ) => {
       if (typeof window === 'undefined') return 0
-      logVoiceEvent('browser', `Starting browser Audio element playback (${mime})`)
       return await new Promise<number>((resolve) => {
         try {
           const src = `data:${mime};base64,${base64}`
@@ -1005,16 +1014,13 @@ export function Home({ userHandle }: { userHandle?: string }) {
           const ensureStarted = () => {
             if (started) return
             started = true
-            logVoiceEvent('browser', 'Browser audio playback started')
             triggerStart()
           }
           audio.onended = () => {
             const durationMs = Math.round((audio.duration || 0) * 1000)
-            logVoiceEvent('browser', `Browser audio playback ended (${durationMs}ms)`)
             resolve(durationMs)
           }
           audio.onerror = () => {
-            logVoiceEvent('error', 'Browser audio playback error')
             resolve(0)
           }
           audio.onplay = ensureStarted
@@ -1025,20 +1031,18 @@ export function Home({ userHandle }: { userHandle?: string }) {
               .then(() => {
                 ensureStarted()
               })
-              .catch((err) => {
-                logVoiceEvent('error', `Browser audio play() rejected: ${err?.message || 'unknown'}`)
+              .catch((_err) => {
                 resolve(0)
               })
           } else {
             ensureStarted()
           }
         } catch (err: any) {
-          logVoiceEvent('error', `Browser audio exception: ${err?.message || 'unknown'}`)
           resolve(0)
         }
       })
     },
-    [logVoiceEvent],
+    [],
   )
 
   const playAssistantResponse = useCallback(
@@ -1049,7 +1053,6 @@ export function Home({ userHandle }: { userHandle?: string }) {
       },
     ): Promise<AssistantPlayback> => {
       if (!text) return { base64: null, mime: 'audio/mpeg', durationMs: 0 }
-      logVoiceEvent('system', `Requesting TTS from OpenAI API (${text.length} chars)`)
       pushLog('Assistant reply ready → playing')
       try {
         const res = await fetch('/api/tts', {
@@ -1058,15 +1061,12 @@ export function Home({ userHandle }: { userHandle?: string }) {
           body: JSON.stringify({ text, speed: 1.22 }),
         })
         if (!res.ok) {
-          logVoiceEvent('error', `TTS API failed with status ${res.status}`)
           throw new Error('tts_failed')
         }
         const data = await res.json()
         if (!data?.audioBase64 || typeof data.audioBase64 !== 'string') {
-          logVoiceEvent('error', 'TTS API returned invalid audio data')
           throw new Error('tts_invalid')
         }
-        logVoiceEvent('openai', `TTS audio received (${Math.round(data.audioBase64.length / 1024)}KB)`)
         const mime = typeof data.mime === 'string' ? data.mime : 'audio/mpeg'
         let durationMs = 0
         const recorder = recorderRef.current
@@ -1082,13 +1082,10 @@ export function Home({ userHandle }: { userHandle?: string }) {
         }
         if (recorder) {
           try {
-            logVoiceEvent('openai', 'Starting AudioContext playback via SessionRecorder')
             const playback = await recorder.playAssistantBase64(data.audioBase64, mime)
             firePlaybackStart()
             durationMs = playback?.durationMs ?? 0
-            logVoiceEvent('openai', `AudioContext playback completed (${durationMs}ms)`)
           } catch (err: any) {
-            logVoiceEvent('error', `AudioContext playback failed: ${err?.message || 'unknown'}, falling back to browser`)
             pushLog('Recorder playback failed, falling back to direct audio')
             // Stop any partial SessionRecorder playback before falling back
             try { recorder.skipPlayback() } catch {}
@@ -1097,7 +1094,6 @@ export function Home({ userHandle }: { userHandle?: string }) {
             })
           }
         } else {
-          logVoiceEvent('system', 'No SessionRecorder available, using browser Audio element')
           durationMs = await playWithAudioElement(data.audioBase64, mime, {
             onStart: firePlaybackStart,
           })
@@ -1105,12 +1101,11 @@ export function Home({ userHandle }: { userHandle?: string }) {
         return { base64: data.audioBase64, mime, durationMs }
       } catch (err) {
         const reason = err instanceof Error ? err.message : 'tts_failed'
-        logVoiceEvent('error', `TTS request failed: ${reason}`)
         pushLog(`TTS request failed: ${truncateForLog(reason, 160)}`)
         throw (err instanceof Error ? err : new Error(reason || 'tts_failed'))
       }
     },
-    [logVoiceEvent, playWithAudioElement, pushLog],
+    [playWithAudioElement, pushLog],
   )
 
   const finalizeNow = useCallback(async () => {
@@ -1369,6 +1364,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
       const manualStopDuringTurn = manualStopRef.current
       if (recDuration < 100 && !recMeta.started) {
         pushLog(`No voice detected (${Math.round(recDuration)}ms) — returning to ready state.`)
+        await playDoneDetectingSound()
         diagnosticSynopsis = {
           text: '',
           turn: currentTurnNumber,
@@ -1408,6 +1404,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
       manualStopRef.current = false
       setManualStopRequested(false)
       pushLog('Recording stopped → thinking')
+      await playDoneDetectingSound()
       updateMachineState('thinking')
 
       let askRes: AskResponse | null = null
@@ -2149,6 +2146,52 @@ export function Home({ userHandle }: { userHandle?: string }) {
     startSession().catch(() => {})
   }, [fatalError, hasStarted, sessionId, startSession, startupError])
 
+  useEffect(() => {
+    if (machineState === 'readyToContinue' && hasStarted) {
+      playReadySound()
+    }
+  }, [machineState, hasStarted, playReadySound])
+
+  // Typing detection during voice recording
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only trigger if actively recording
+      if (machineState !== 'recording') return
+
+      // Ignore modifier-only keys (Ctrl, Alt, Shift, Cmd, etc)
+      const modifierKeys = ['Control', 'Alt', 'Shift', 'Meta', 'AltGraph']
+      if (modifierKeys.includes(event.key)) return
+
+      // Don't stop if user is pressing Escape (might be trying to close something)
+      if (event.key === 'Escape') return
+
+      // User typed something - stop voice recording gracefully
+      pushLog('Typing detected → stopping voice recording')
+      requestManualStop()
+    }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('keydown', handleKeyDown)
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('keydown', handleKeyDown)
+      }
+    }
+  }, [machineState, requestManualStop, pushLog])
+
+  // Show reflection modal when session completes
+  useEffect(() => {
+    if (machineState === 'doneSuccess' && hasStarted && !showReflection) {
+      // Delay showing reflection slightly so user sees the success state first
+      const timer = setTimeout(() => {
+        setShowReflection(true)
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [machineState, hasStarted, showReflection])
+
   const handleHeroPress = useCallback(() => {
     if (startupError || fatalError) return
     if (machineState === 'recording') {
@@ -2161,37 +2204,37 @@ export function Home({ userHandle }: { userHandle?: string }) {
   const visual = STATE_VISUALS[machineState] ?? STATE_VISUALS.idle
   const isInitialState = !hasStarted && machineState === 'idle'
   const heroBadge = finishRequested ? 'Finishing' : manualStopRequested ? 'Stopping' : visual.badge
-  const heroIcon = finishRequested ? '📁' : manualStopRequested ? '⏹️' : visual.icon
+  const heroIcon = finishRequested ? '' : manualStopRequested ? '' : visual.icon
   const heroTitle = finishRequested
     ? 'Wrapping up'
     : manualStopRequested
-      ? 'Stopping the recording'
+      ? 'Stopping'
       : isInitialState
-        ? 'Ready to begin'
+        ? 'Ready'
         : visual.title
   const heroDescription = (() => {
     if (finishRequested) {
-      return 'Hold tight while I save your conversation and prepare your history.'
+      return 'Saving your session…'
     }
     if (manualStopRequested) {
-      return 'Closing this turn—give me a moment to capture what you said.'
+      return 'Finishing this turn…'
     }
     if (isInitialState) {
-      return 'I’ll start with a welcome and remember every word you share.'
+      return 'Press to start'
     }
     switch (machineState) {
       case 'calibrating':
-        return 'Measuring the room noise so I can tell when you start speaking.'
+        return 'Calibrating microphone'
       case 'recording':
-        return 'Speak naturally. Tap the glowing ring whenever you want me to stop listening.'
+        return 'Listening—speak naturally'
       case 'thinking':
-        return 'Working through what you just said—this only takes a moment.'
+        return 'Processing…'
       case 'speakingPrep':
-        return 'Warming up my voice so I can respond clearly.'
+        return 'Preparing response…'
       case 'playing':
-        return 'Sharing what I heard. Tap the circle to skip ahead.'
+        return 'Speaking'
       case 'readyToContinue':
-        return 'I’m ready whenever you are—just start speaking.'
+        return 'Ready for next question'
       default:
         return visual.description
     }
@@ -2294,13 +2337,66 @@ export function Home({ userHandle }: { userHandle?: string }) {
     ? 'Request failed'
     : null
 
+  // Memoize FloatingVoiceRecorder props to prevent unnecessary re-renders that restart voice
+  const floatingRecorderProps = useMemo(() => ({
+    sessionId,
+    machineState,
+    turn,
+    hasStarted,
+    finishRequested,
+    audioLevel,
+    providerError,
+    startupError,
+    startupDetails,
+    fatalError,
+    fatalDetails,
+    handleHeroPress,
+    requestFinish,
+    requestManualStop,
+    heroButtonClasses: [...heroButtonClasses],
+    heroStyles,
+    heroAriaLabel,
+    heroIcon,
+    heroBadge,
+    heroTitle,
+    heroDescription,
+    heroDisabled,
+    statusMessage,
+    showSkipButton,
+    statusHint,
+    diagnosticsHref,
+  }), [
+    sessionId, machineState, turn, hasStarted, finishRequested, audioLevel,
+    providerError, startupError, startupDetails, fatalError, fatalDetails,
+    handleHeroPress, requestFinish, requestManualStop, heroButtonClasses,
+    heroStyles, heroAriaLabel, heroIcon, heroBadge, heroTitle, heroDescription,
+    heroDisabled, statusMessage, showSkipButton, statusHint, diagnosticsHref,
+  ])
+
   return (
     <main className="home-main">
-      <div className="panel-card topic-progress-card">
-        <TopicProgress userHandle={normalizedHandle} />
-      </div>
+      {/* Floating Voice Recorder - stays fixed while tabs change */}
+      <FloatingVoiceRecorder
+        {...floatingRecorderProps}
+        onStartAgain={() => {
+          try {
+            recorderRef.current?.cancel()
+          } catch {}
+          recorderRef.current = null
+          sessionAudioUrlRef.current = null
+          sessionAudioDurationRef.current = 0
+          conversationRef.current = []
+          setHasStarted(false)
+          setTurn(0)
+          setFinishRequested(false)
+          finishRequestedRef.current = false
+          manualStopRef.current = false
+          setManualStopRequested(false)
+          updateMachineState('idle')
+        }}
+      />
 
-      <div className="panel-card hero-card">
+      <header className="home-header">
         <div className="account-switcher" ref={accountSwitcherRef}>
           <button
             type="button"
@@ -2408,150 +2504,84 @@ export function Home({ userHandle }: { userHandle?: string }) {
             </div>
           ) : null}
         </div>
-        {providerError && (
-          <div className="alert-banner alert-banner--error" role="alert">
-            <div className="alert-banner__title">
-              ⚠️ Trouble reaching Google
-              {providerErrorStatusLabel ? ` · ${providerErrorStatusLabel}` : ''}
-            </div>
-            <div className="alert-banner__message">{providerError.message}</div>
-            <div className="alert-banner__meta">
-              Captured {providerErrorTimestamp || 'time unknown'} · Reason:{' '}
-              {providerError.reason ? providerError.reason.replace(/_/g, ' ') : 'unspecified'} ·{' '}
-              <a className="link" href={diagnosticsHref}>
-                Review diagnostics
-              </a>
-            </div>
-            {providerError.snippet && (
-              <pre className="alert-banner__snippet">{providerError.snippet}</pre>
-            )}
-          </div>
-        )}
-        {startupError && (
-          <div className="alert-banner alert-banner--error" role="alert">
-            <div className="alert-banner__title">🚫 Startup blocked</div>
-            <div className="alert-banner__message">{startupError}</div>
-            {startupDetails.length ? (
-              <div className="alert-banner__details">
-                {startupDetails.map((detail, index) => (
-                  <div key={`startup-detail-${index}`}>• {detail}</div>
-                ))}
-              </div>
-            ) : null}
-            <div className="alert-banner__meta">
-              <a className="link" href={diagnosticsHref}>
-                Open diagnostics
-              </a>
-            </div>
-          </div>
-        )}
-        {fatalError && (
-          <div className="alert-banner alert-banner--error" role="alert">
-            <div className="alert-banner__title">🛑 Session halted</div>
-            <div className="alert-banner__message">{fatalError}</div>
-            {fatalDetails.length ? (
-              <div className="alert-banner__details">
-                {fatalDetails.map((detail, index) => (
-                  <div key={`fatal-detail-${index}`}>• {detail}</div>
-                ))}
-              </div>
-            ) : null}
-            <div className="alert-banner__meta">
-              <a className="link" href={diagnosticsHref}>
-                Review diagnostics
-              </a>
-            </div>
-          </div>
-        )}
-        <button
-          type="button"
-          onClick={handleHeroPress}
-          className={heroButtonClasses.join(' ')}
-          aria-label={heroAriaLabel}
-          style={{
-            ...heroStyles,
-            '--audio-level': machineState === 'recording' ? Math.min(audioLevel / 5, 1) : 0,
-          } as CSSProperties}
-          disabled={heroDisabled}
-        >
-          <span className="hero-button__gradient" aria-hidden="true" />
-          <span className="hero-button__pulse" aria-hidden="true" />
-          <span className="hero-button__dot" aria-hidden="true" />
-          {machineState === 'recording' && (
-            <span
-              className="hero-button__level"
-              aria-hidden="true"
-              style={{
-                transform: `scale(${1 + audioLevel * 0.08})`,
-                opacity: Math.min(0.2 + audioLevel * 0.08, 0.7),
-              }}
-            />
-          )}
-          <span className="hero-button__content">
-            <span className="hero-button__icon" aria-hidden="true">
-              {heroIcon}
-            </span>
-            <span className="hero-button__badge">{heroBadge}</span>
-            <span className="hero-button__title">{heroTitle}</span>
-            <span className="hero-button__description">{heroDescription}</span>
-          </span>
-        </button>
+        <nav className="home-tabs">
+          <button
+            type="button"
+            className={`home-tabs__button${activeTab === 'chat' ? ' home-tabs__button--active' : ''}`}
+            onClick={() => setActiveTab('chat')}
+          >
+            Chat
+          </button>
+          <button
+            type="button"
+            className={`home-tabs__button${activeTab === 'history' ? ' home-tabs__button--active' : ''}`}
+            onClick={() => setActiveTab('history')}
+          >
+            History
+          </button>
+          <button
+            type="button"
+            className={`home-tabs__button${activeTab === 'settings' ? ' home-tabs__button--active' : ''}`}
+            onClick={() => setActiveTab('settings')}
+          >
+            Settings
+          </button>
+        </nav>
+      </header>
 
-        <div className="status-block">
-          <div className="status-text">{statusMessage}</div>
-          {showSkipButton ? (
-            <div className="status-actions">
-              <button
-                type="button"
-                onClick={requestManualStop}
-                className="btn-secondary btn-large status-skip"
-              >
-                ⏭ Next question
-              </button>
-            </div>
-          ) : null}
-          {statusHint ? <div className="status-hint">{statusHint}</div> : null}
-          {machineState === 'doneSuccess' ? (
-            <button
-              onClick={() => {
-                try {
-                  recorderRef.current?.cancel()
-                } catch {}
-                recorderRef.current = null
-                sessionAudioUrlRef.current = null
-                sessionAudioDurationRef.current = 0
-                conversationRef.current = []
-                setHasStarted(false)
-                setTurn(0)
-                setFinishRequested(false)
-                finishRequestedRef.current = false
-                manualStopRef.current = false
-                setManualStopRequested(false)
-                updateMachineState('idle')
-              }}
-              className="btn-secondary btn-large"
-            >
-              Start Again
-            </button>
-          ) : null}
-          {machineState !== 'doneSuccess' && (
-            <button
-              onClick={requestFinish}
-              disabled={heroDisabled || !hasStarted || finishRequested}
-              className="btn-outline"
-            >
-              I’m finished
-            </button>
-          )}
-        </div>
+      <div className="tab-content">
+        {activeTab === 'chat' && (
+          <ChatTab
+            normalizedHandle={normalizedHandle}
+            diagnosticsHref={diagnosticsHref}
+          />
+        )}
+        {activeTab === 'history' && (
+          <HistoryTab handle={normalizedHandle} currentSessionId={sessionId} />
+        )}
+        {activeTab === 'settings' && (
+          <SettingsTab handle={normalizedHandle} />
+        )}
       </div>
 
-      <div className="panel-card">
-        <ServiceStatusGrid diagnosticsHref={diagnosticsHref} />
-      </div>
-
-      {/* Voice synthesis debug log - shows at bottom of screen */}
-      <VoiceDebug entries={voiceDebugEntries} visible={voiceDebugEntries.length > 0} />
+      {/* End-of-Session Reflection Modal */}
+      {showReflection && (
+        <EndOfSessionReflection
+          _sessionId={sessionId || ''}
+          handle={normalizedHandle}
+          personProfile={null} // TODO: Fetch from session when available
+          topicProgress={[]} // TODO: Calculate from session when available
+          totalTurns={turn}
+          onSave={() => {
+            // Save session and close reflection
+            setShowReflection(false)
+            setActiveTab('chat')
+          }}
+          onContinue={() => {
+            // Close reflection but keep session active
+            setShowReflection(false)
+          }}
+          onStartNew={() => {
+            // Reset session and close reflection
+            setShowReflection(false)
+            try {
+              recorderRef.current?.cancel()
+            } catch {}
+            recorderRef.current = null
+            sessionAudioUrlRef.current = null
+            sessionAudioDurationRef.current = 0
+            conversationRef.current = []
+            setHasStarted(false)
+            setTurn(0)
+            setFinishRequested(false)
+            finishRequestedRef.current = false
+            manualStopRef.current = false
+            setManualStopRequested(false)
+            updateMachineState('idle')
+            setActiveTab('chat')
+          }}
+        />
+      )}
     </main>
   )
 }

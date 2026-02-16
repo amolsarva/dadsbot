@@ -23,10 +23,14 @@ export function SiteNav() {
       { href: buildScopedPath('/', handle), label: 'Home' },
       { href: buildScopedPath('/history', handle), label: 'History' },
       { href: buildScopedPath('/settings', handle), label: 'Settings' },
-      { href: buildScopedPath('/diagnostics', handle), label: 'Diagnostics' },
     ],
     [handle],
   )
+
+  // Don't show site-nav on scoped routes (they have their own tabs now)
+  if (handle) {
+    return null
+  }
 
   return (
     <nav className="site-nav">
