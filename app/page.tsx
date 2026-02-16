@@ -553,7 +553,7 @@ type AssistantPlayback = {
 }
 
 export function Home({ userHandle }: { userHandle?: string }) {
-  const normalizedHandle = normalizeHandle(userHandle)
+  const normalizedHandle = normalizeHandle(userHandle) ?? null
   const displayHandle = userHandle?.trim() || null
   const router = useRouter()
   const diagnosticsHref = buildScopedPath('/diagnostics', normalizedHandle)
