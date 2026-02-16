@@ -205,6 +205,19 @@ function parsePrimerMarkdown(text: string): ProfileSection[] {
     sections.push(currentSection)
   }
 
-  // Filter out empty sections
-  return sections.filter(s => s.highlights.length > 0 || s.archived.length > 0)
+  // Filter out empty sections and generic interview-guide sections
+  const guidePatterns = [
+    /guide\s*map/i,
+    /suggested.*angles/i,
+    /next\s*angles/i,
+    /interview\s*guide/i,
+    /question\s*bank/i,
+    /prompts?\s*to\s*(ask|try)/i,
+  ]
+  return sections.filter(s => {
+    if (s.highlights.length === 0 && s.archived.length === 0) return false
+    // Skip sections that are interview instructions rather than personal memories
+    if (guidePatterns.some(p => p.test(s.title))) return false
+    return true
+  })
 }

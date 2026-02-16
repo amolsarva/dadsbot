@@ -524,7 +524,7 @@ button.link-button:disabled {
 button.hero-button {
   --hero-accent: var(--accent);
   position: relative;
-  width: min(360px, 75vw);
+  width: min(200px, 50vw);
   aspect-ratio: 1;
   border-radius: 999px;
   background: linear-gradient(135deg, rgba(20, 28, 40, 0.6), rgba(20, 28, 40, 0.8));
@@ -589,43 +589,31 @@ button.hero-button .hero-button__content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 24px;
+  gap: 4px;
+  padding: 16px;
   text-align: center;
 }
 
 button.hero-button .hero-button__icon {
-  font-size: 48px;
+  font-size: 32px;
 }
 
 button.hero-button .hero-button__badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 11px;
-  font-weight: 700;
-  color: rgba(217, 119, 6, 0.9);
-  background: transparent;
-  border: 1px solid rgba(217, 119, 6, 0.5);
-  border-radius: 4px;
-  padding: 5px 14px;
-  box-shadow: none;
+  display: none;
 }
 
 button.hero-button .hero-button__title {
-  font-size: 32px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--ink);
-  letter-spacing: -0.5px;
+  letter-spacing: -0.3px;
 }
 
 button.hero-button .hero-button__description {
-  font-size: 13px;
+  font-size: 11px;
   color: rgba(255, 255, 255, 0.65);
-  line-height: 1.6;
-  max-width: 280px;
+  line-height: 1.4;
+  max-width: 180px;
   font-weight: 400;
 }
 
@@ -654,11 +642,18 @@ button.hero-button.is-stopping {
 }
 
 .status-block {
-  display: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
 }
 
 .status-text {
-  display: none;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+  max-width: 320px;
 }
 
 .status-actions {
@@ -673,7 +668,9 @@ button.hero-button.is-stopping {
 }
 
 .status-hint {
-  display: none;
+  font-size: 12px;
+  color: var(--muted);
+  opacity: 0.7;
 }
 
 button.btn-large {
@@ -2352,46 +2349,33 @@ input[type="checkbox"] {
    ============================================================================ */
 
 .floating-voice-recorder {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  pointer-events: none;
-  z-index: 50;
-  padding: 20px;
-  display: flex;
+  width: 100%;
+  max-width: 600px;
+  display: none;
   justify-content: center;
-  opacity: 0;
-  transform: translateY(-20px);
-  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 .floating-voice-recorder--active {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
+  display: flex;
 }
 
 .floating-voice-recorder__container {
-  max-width: 600px;
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  pointer-events: auto;
+  gap: 12px;
 }
 
 .floating-voice-recorder__content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
-  padding: 24px;
+  gap: 16px;
+  padding: 20px;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
 .floating-voice-recorder__alerts {

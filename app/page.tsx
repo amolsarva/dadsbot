@@ -464,9 +464,9 @@ const STATE_VISUALS: Record<
 > = {
   idle: {
     icon: '',
-    badge: 'Ready',
-    title: 'Ready',
-    description: 'Press to start',
+    badge: '',
+    title: 'Start',
+    description: 'Tap to begin your interview',
     tone: {
       accent: '#1b8d55',
       gradient: 'linear-gradient(135deg, rgba(255, 186, 102, 0.3), rgba(255, 247, 237, 0.88), rgba(121, 205, 159, 0.32))',
@@ -474,9 +474,9 @@ const STATE_VISUALS: Record<
   },
   calibrating: {
     icon: '',
-    badge: 'Preparing',
-    title: 'Calibrating',
-    description: 'Calibrating microphone',
+    badge: '',
+    title: 'Preparing',
+    description: 'Setting up microphone…',
     tone: {
       accent: '#0ea5e9',
       gradient: 'linear-gradient(135deg, rgba(125, 211, 161, 0.28), rgba(14, 165, 233, 0.24))',
@@ -484,9 +484,9 @@ const STATE_VISUALS: Record<
   },
   recording: {
     icon: '',
-    badge: 'Live',
+    badge: '',
     title: 'Listening',
-    description: 'Listening—speak naturally',
+    description: 'Tap when you\u2019re done speaking',
     tone: {
       accent: '#f97316',
       gradient: 'linear-gradient(135deg, rgba(255, 186, 102, 0.3), rgba(255, 247, 237, 0.82), rgba(19, 136, 8, 0.22))',
@@ -494,9 +494,9 @@ const STATE_VISUALS: Record<
   },
   thinking: {
     icon: '',
-    badge: 'Thinking',
-    title: 'Processing',
-    description: 'Processing…',
+    badge: '',
+    title: 'Thinking',
+    description: 'Analyzing your response…',
     tone: {
       accent: '#9333ea',
       gradient: 'linear-gradient(135deg, rgba(244, 187, 255, 0.28), rgba(190, 227, 248, 0.26))',
@@ -504,9 +504,9 @@ const STATE_VISUALS: Record<
   },
   speakingPrep: {
     icon: '',
-    badge: 'Preparing',
+    badge: '',
     title: 'Preparing',
-    description: 'Preparing response…',
+    description: 'Getting ready to respond…',
     tone: {
       accent: '#f97316',
       gradient: 'linear-gradient(135deg, rgba(255, 207, 134, 0.34), rgba(255, 247, 237, 0.86))',
@@ -514,9 +514,9 @@ const STATE_VISUALS: Record<
   },
   playing: {
     icon: '',
-    badge: 'Speaking',
+    badge: '',
     title: 'Speaking',
-    description: 'Speaking',
+    description: 'Tap to skip ahead',
     tone: {
       accent: '#f97316',
       gradient: 'linear-gradient(135deg, rgba(255, 186, 102, 0.32), rgba(255, 247, 237, 0.86))',
@@ -524,9 +524,9 @@ const STATE_VISUALS: Record<
   },
   readyToContinue: {
     icon: '',
-    badge: 'Ready',
-    title: 'Ready',
-    description: 'Ready for next question',
+    badge: '',
+    title: 'Continue',
+    description: 'Tap to start next question',
     tone: {
       accent: '#1b8d55',
       gradient: 'linear-gradient(135deg, rgba(121, 205, 159, 0.3), rgba(255, 247, 237, 0.8))',
@@ -534,8 +534,8 @@ const STATE_VISUALS: Record<
   },
   doneSuccess: {
     icon: '',
-    badge: 'Complete',
-    title: 'Complete',
+    badge: '',
+    title: 'Done',
     description: 'Session saved',
     tone: {
       accent: '#0f7c4b',
@@ -2203,42 +2203,18 @@ export function Home({ userHandle }: { userHandle?: string }) {
 
   const visual = STATE_VISUALS[machineState] ?? STATE_VISUALS.idle
   const isInitialState = !hasStarted && machineState === 'idle'
-  const heroBadge = finishRequested ? 'Finishing' : manualStopRequested ? 'Stopping' : visual.badge
+  const heroBadge = '' // Badge removed — title + description are sufficient
   const heroIcon = finishRequested ? '' : manualStopRequested ? '' : visual.icon
   const heroTitle = finishRequested
-    ? 'Wrapping up'
+    ? 'Wrapping Up'
     : manualStopRequested
       ? 'Stopping'
-      : isInitialState
-        ? 'Ready'
-        : visual.title
-  const heroDescription = (() => {
-    if (finishRequested) {
-      return 'Saving your session…'
-    }
-    if (manualStopRequested) {
-      return 'Finishing this turn…'
-    }
-    if (isInitialState) {
-      return 'Press to start'
-    }
-    switch (machineState) {
-      case 'calibrating':
-        return 'Calibrating microphone'
-      case 'recording':
-        return 'Listening—speak naturally'
-      case 'thinking':
-        return 'Processing…'
-      case 'speakingPrep':
-        return 'Preparing response…'
-      case 'playing':
-        return 'Speaking'
-      case 'readyToContinue':
-        return 'Ready for next question'
-      default:
-        return visual.description
-    }
-  })()
+      : visual.title
+  const heroDescription = finishRequested
+    ? 'Saving your session…'
+    : manualStopRequested
+      ? 'Finishing this turn…'
+      : visual.description
   const heroTone = finishRequested
     ? { accent: '#f97316', gradient: 'linear-gradient(135deg, rgba(255, 186, 102, 0.36), rgba(255, 247, 237, 0.88))' }
     : manualStopRequested
