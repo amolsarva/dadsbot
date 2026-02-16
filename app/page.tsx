@@ -20,8 +20,6 @@ import {
 } from '@/lib/user-scope'
 import { readDefaultNotifyEmailClient } from '@/lib/default-notify-email.client'
 import { maskEmail } from '@/lib/default-notify-email.shared'
-import { TopicProgress } from '@/components/topic-progress'
-import { ServiceStatusGrid } from '@/components/service-status-grid'
 import { ChatTab } from '@/components/tabs/chat-tab'
 import { HistoryTab } from '@/components/tabs/history-tab'
 import { SettingsTab } from '@/components/tabs/settings-tab'
