@@ -6,7 +6,7 @@ import type { TopicProgress } from '@/lib/topic-progress'
 import { formatCheckmarks, getCoverageLabel } from '@/lib/topic-progress'
 
 interface EndOfSessionReflectionProps {
-  sessionId: string
+  _sessionId: string
   handle: string | null
   personProfile: PersonProfile | null
   topicProgress: TopicProgress[]
