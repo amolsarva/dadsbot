@@ -523,37 +523,29 @@ button.link-button:disabled {
 
 button.hero-button {
   --hero-accent: var(--accent);
-  --hero-gradient: linear-gradient(135deg, rgba(217, 119, 6, 0.15), rgba(20, 28, 40, 0) 48%, rgba(6, 95, 70, 0.12));
-  --hero-glow: rgba(217, 119, 6, 0.25);
   position: relative;
   width: min(360px, 75vw);
   aspect-ratio: 1;
   border-radius: 999px;
-  background: var(--bg-accent);
-  border: 3px solid var(--accent);
-  box-shadow: 0 4px 12px var(--shadow);
+  background: linear-gradient(135deg, rgba(20, 28, 40, 0.6), rgba(20, 28, 40, 0.8));
+  border: 2px solid rgba(217, 119, 6, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 8px 32px rgba(0, 0, 0, 0.3);
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   color: var(--ink);
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: all 0.3s ease;
 }
 
 button.hero-button:hover {
-  border-color: var(--accent);
-  box-shadow: 0 4px 16px rgba(217, 119, 6, 0.3);
+  border-color: rgba(217, 119, 6, 0.7);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 12px 40px rgba(217, 119, 6, 0.15);
 }
 
 button.hero-button::before {
-  content: "";
-  position: absolute;
-  inset: -6px;
-  border-radius: 999px;
-  background: conic-gradient(from 0deg, var(--ring-saffron) 0deg, var(--ring-saffron) 120deg, rgba(217, 119, 6, 0.3) 120deg, rgba(217, 119, 6, 0.3) 240deg, var(--ring-green) 240deg, var(--ring-green) 360deg);
-  opacity: 0.4;
-  z-index: 0;
+  display: none;
 }
 
 button.hero-button::after {
@@ -578,23 +570,14 @@ button.hero-button .hero-button__gradient {
 }
 
 button.hero-button .hero-button__dot {
-  position: absolute;
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
-  background: var(--accent);
-  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.4);
-  z-index: 0;
-  transform: translate(-50%, -50%);
-  top: 50%;
-  left: 50%;
+  display: none;
 }
 
 button.hero-button .hero-button__level {
   position: absolute;
-  inset: 8%;
+  inset: 12%;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(217, 119, 6, 0.2) 0%, rgba(217, 119, 6, 0.05) 70%, transparent 100%);
+  background: radial-gradient(circle, rgba(217, 119, 6, 0.08) 0%, transparent 100%);
   z-index: 1;
   pointer-events: none;
   transition: transform 0.08s ease-out, opacity 0.08s ease-out;
@@ -621,27 +604,29 @@ button.hero-button .hero-button__badge {
   justify-content: center;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ink);
-  background: rgba(10, 20, 40, 0.85);
-  border: 1px solid rgba(217, 119, 6, 0.6);
-  border-radius: 999px;
-  padding: 6px 18px;
-  box-shadow: 0 8px 20px rgba(217, 119, 6, 0.3);
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(217, 119, 6, 0.9);
+  background: transparent;
+  border: 1px solid rgba(217, 119, 6, 0.5);
+  border-radius: 4px;
+  padding: 5px 14px;
+  box-shadow: none;
 }
 
 button.hero-button .hero-button__title {
-  font-size: 28px;
-  font-weight: 600;
+  font-size: 32px;
+  font-weight: 700;
   color: var(--ink);
+  letter-spacing: -0.5px;
 }
 
 button.hero-button .hero-button__description {
-  font-size: 15px;
-  color: var(--muted);
-  line-height: 1.5;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.6;
   max-width: 280px;
+  font-weight: 400;
 }
 
 button.hero-button:hover {
@@ -653,18 +638,19 @@ button.hero-button:focus-visible {
   outline-offset: 6px;
 }
 
+button.hero-button.is-recording {
+  border-color: rgba(217, 119, 6, 0.8);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 12px 40px rgba(217, 119, 6, 0.2);
+}
+
 button.hero-button.is-finishing {
-  --hero-accent: #fb923c;
-  --hero-gradient: linear-gradient(135deg, rgba(251, 146, 60, 0.25), rgba(30, 41, 59, 0) 48%, rgba(252, 165, 11, 0.15));
-  --hero-glow: rgba(251, 146, 60, 0.36);
-  border-color: #fb923c;
+  border-color: rgba(251, 146, 60, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 12px 40px rgba(251, 146, 60, 0.15);
 }
 
 button.hero-button.is-stopping {
-  --hero-accent: #ef4444;
-  --hero-gradient: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(30, 41, 59, 0) 48%, rgba(244, 114, 182, 0.15));
-  --hero-glow: rgba(239, 68, 68, 0.3);
-  border-color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 12px 40px rgba(239, 68, 68, 0.15);
 }
 
 .status-block {
