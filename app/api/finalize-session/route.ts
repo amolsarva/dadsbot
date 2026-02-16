@@ -5,6 +5,7 @@ import { sendSummaryEmail } from '@/lib/email'
 import { getSession, mergeSessionArtifacts, rememberSessionManifest } from '@/lib/data'
 import { flagFox, listFoxes } from '@/lib/foxes'
 import { resolveDefaultNotifyEmailServer } from '@/lib/default-notify-email.server'
+import { extractPersonFactsFromTurns } from '@/lib/person-facts'
 
 import { z } from 'zod'
 
@@ -276,6 +277,22 @@ export async function POST(req: NextRequest) {
     manifest.artifacts.session_manifest = manifestUrl
     manifest.artifacts.manifest = manifestUrl
 
+    // Extract person profile from conversation turns
+    let personProfileJson: string | undefined
+    try {
+      const turnsForExtraction = conversationLines.map((line) => ({
+        role: line.role,
+        text: line.text,
+      }))
+      const inMemory = await getSession(sessionId)
+      const userHandle = inMemory?.user_handle ?? null
+      const personProfile = await extractPersonFactsFromTurns(turnsForExtraction, userHandle)
+      personProfileJson = JSON.stringify(personProfile)
+    } catch (error) {
+      console.error('Error extracting person profile in finalize-session:', error)
+      // Don't fail the whole session if profile extraction fails
+    }
+
     rememberSessionManifest(
       {
         ...manifest,
@@ -298,6 +315,7 @@ export async function POST(req: NextRequest) {
         transcript_txt: transcriptTxtUrl,
         transcript_json: transcriptJsonUrl,
         session_audio: sessionAudioUrl || undefined,
+        ...(personProfileJson ? { person_profile: personProfileJson } : {}),
       },
       totalTurns: turns.length,
       durationMs: sessionAudioDurationMs ?? totalDuration,
