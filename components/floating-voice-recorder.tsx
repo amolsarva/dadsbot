@@ -147,7 +147,7 @@ export function FloatingVoiceRecorder({
                 disabled={heroDisabled || !hasStarted || finishRequested}
                 className="btn-outline"
               >
-                I'm finished
+                I&apos;m finished
               </button>
             )}
           </div>
