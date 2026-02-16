@@ -85,6 +85,20 @@ git commit -m "Simplify hero button UI"
 - Do not leave commits sitting locally
 - If the user asks "where's my change?" - first check: "Is it pushed to main?"
 
+## Future: Automated Build Monitoring (TODO)
+
+When Vercel Personal Access Token is provided:
+- Claude can fetch build logs directly from Vercel API
+- Automatically detect build failures
+- Proactively fix errors without manual log pasting
+- Fully automated deployment feedback loop
+
+**Setup needed**:
+1. User provides Vercel PAT to Claude
+2. Claude stores in secure context
+3. After each push, Claude checks deployment status
+4. Retrieves and fixes build errors automatically
+
 ---
 
 **Remember**: We move fast by pushing live. We move safely by knowing we can always rollback.

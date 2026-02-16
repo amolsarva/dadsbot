@@ -31,13 +31,15 @@ export type PersonProfile = {
  */
 export async function extractPersonFactsFromTurns(
   turns: Array<{ role: 'user' | 'assistant'; text: string }>,
-  handle: string
+  handle: string | null
 ): Promise<PersonProfile> {
   try {
+    const normalizedHandle = handle ?? 'unknown'
+
     // If no API key, return minimal profile
     if (!process.env.OPENAI_API_KEY) {
       return {
-        handle,
+        handle: normalizedHandle,
         updatedAt: new Date().toISOString(),
         extractedFrom: {
           totalTurns: turns.length,
@@ -99,7 +101,7 @@ Return ONLY the JSON object, no other text.`,
 
     // Build final profile
     const profile: PersonProfile = {
-      handle,
+      handle: normalizedHandle,
       fullName: extractedData.fullName,
       birthplace: extractedData.birthplace,
       currentLocation: extractedData.currentLocation,
@@ -121,7 +123,7 @@ Return ONLY the JSON object, no other text.`,
     console.error('Error extracting person facts:', error)
     // Fall back to minimal profile on error
     return {
-      handle,
+      handle: normalizedHandle,
       updatedAt: new Date().toISOString(),
       extractedFrom: {
         totalTurns: turns.length,
