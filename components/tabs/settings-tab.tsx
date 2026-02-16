@@ -9,7 +9,7 @@ interface SettingsTabProps {
 export function SettingsTab({ handle }: SettingsTabProps) {
   return (
     <div className="settings-tab">
-      <SettingsView handle={handle} />
+      <SettingsView userHandle={handle ?? undefined} />
     </div>
   )
 }

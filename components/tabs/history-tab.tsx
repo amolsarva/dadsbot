@@ -33,7 +33,7 @@ export function HistoryTab({ handle }: HistoryTabProps) {
       {/* Use key to force remount and data refresh when handle changes */}
       <HistoryView
         key={`history-${historyKey}-${handle}`}
-        handle={handle}
+        userHandle={handle ?? undefined}
         onSessionsLoaded={handleSessionsLoaded}
       />
     </div>
