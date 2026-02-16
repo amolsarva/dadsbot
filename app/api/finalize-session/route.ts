@@ -308,6 +308,9 @@ export async function POST(req: NextRequest) {
       manifestUrl,
     )
 
+    // Save turns as JSON artifact for recovery/debugging
+    const turnsJson = JSON.stringify(turns)
+
     await mergeSessionArtifacts(sessionId, {
       artifacts: {
         session_manifest: manifestUrl,
@@ -315,6 +318,7 @@ export async function POST(req: NextRequest) {
         transcript_txt: transcriptTxtUrl,
         transcript_json: transcriptJsonUrl,
         session_audio: sessionAudioUrl || undefined,
+        session_turns: turnsJson,
         ...(personProfileJson ? { person_profile: personProfileJson } : {}),
       },
       totalTurns: turns.length,

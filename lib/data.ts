@@ -1039,6 +1039,17 @@ export async function finalizeSession(
   }
   s.total_turns = turns.length
 
+  // Save turns as JSON artifact for recovery/debugging
+  const turnsForStorage = (s.turns || []).map((t) => ({
+    id: t.id,
+    role: t.role,
+    text: t.text,
+    audio_blob_url: t.audio_blob_url,
+  }))
+  if (turnsForStorage.length > 0) {
+    s.artifacts.session_turns = JSON.stringify(turnsForStorage)
+  }
+
   // Extract person profile from conversation turns
   try {
     const turnsForExtraction = (s.turns || []).map((t) => ({
