@@ -2206,37 +2206,37 @@ export function Home({ userHandle }: { userHandle?: string }) {
   const visual = STATE_VISUALS[machineState] ?? STATE_VISUALS.idle
   const isInitialState = !hasStarted && machineState === 'idle'
   const heroBadge = finishRequested ? 'Finishing' : manualStopRequested ? 'Stopping' : visual.badge
-  const heroIcon = finishRequested ? '📁' : manualStopRequested ? '⏹️' : visual.icon
+  const heroIcon = finishRequested ? '' : manualStopRequested ? '' : visual.icon
   const heroTitle = finishRequested
     ? 'Wrapping up'
     : manualStopRequested
-      ? 'Stopping the recording'
+      ? 'Stopping'
       : isInitialState
-        ? 'Ready to begin'
+        ? 'Ready'
         : visual.title
   const heroDescription = (() => {
     if (finishRequested) {
-      return 'Hold tight while I save your conversation and prepare your history.'
+      return 'Saving your session…'
     }
     if (manualStopRequested) {
-      return 'Closing this turn—give me a moment to capture what you said.'
+      return 'Finishing this turn…'
     }
     if (isInitialState) {
-      return 'I’ll start with a welcome and remember every word you share.'
+      return 'Press to start'
     }
     switch (machineState) {
       case 'calibrating':
-        return 'Measuring the room noise so I can tell when you start speaking.'
+        return 'Calibrating microphone'
       case 'recording':
-        return 'Speak naturally. Tap the glowing ring whenever you want me to stop listening.'
+        return 'Listening—speak naturally'
       case 'thinking':
-        return 'Working through what you just said—this only takes a moment.'
+        return 'Processing…'
       case 'speakingPrep':
-        return 'Warming up my voice so I can respond clearly.'
+        return 'Preparing response…'
       case 'playing':
-        return 'Sharing what I heard. Tap the circle to skip ahead.'
+        return 'Speaking'
       case 'readyToContinue':
-        return 'I’m ready whenever you are—just start speaking.'
+        return 'Ready for next question'
       default:
         return visual.description
     }
