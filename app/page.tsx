@@ -484,7 +484,7 @@ const STATE_VISUALS: Record<
   },
   recording: {
     icon: '',
-    badge: 'Listening',
+    badge: 'Live',
     title: 'Listening',
     description: 'Listening—speak naturally',
     tone: {

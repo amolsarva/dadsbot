@@ -88,8 +88,10 @@ export async function GET(req: NextRequest) {
     // Calculate topic progress
     const topicProgress = countTopicMentions(allUserText)
     const maxMentions = Math.max(...topicProgress.map((t) => t.mentions), 1)
-    const sessionCount = sessions.length
-    const totalTurns = sessions.reduce((sum, s) => sum + s.total_turns, 0)
+    // Only count sessions that have actual conversation turns (exclude stale/abandoned)
+    const activeSessions = sessions.filter((s) => s.total_turns > 0)
+    const sessionCount = activeSessions.length
+    const totalTurns = activeSessions.reduce((sum, s) => sum + s.total_turns, 0)
 
     if (!primer.text || primer.text.trim().length === 0) {
       return NextResponse.json({

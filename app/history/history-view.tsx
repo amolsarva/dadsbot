@@ -112,7 +112,11 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
       const query = handle ? `?handle=${encodeURIComponent(handle)}` : ''
       const api = await (await fetch(`/api/history${query}`)).json()
       const serverRows: Row[] = api?.items || []
-      const sorted = [...serverRows].sort((a, b) => {
+      // Filter out stale sessions (in_progress with 0 turns = abandoned)
+      const meaningful = serverRows.filter(
+        (r) => !(r.status === 'in_progress' && r.total_turns === 0)
+      )
+      const sorted = [...meaningful].sort((a, b) => {
         const aTime = new Date(a.created_at).getTime()
         const bTime = new Date(b.created_at).getTime()
         if (Number.isNaN(aTime) && Number.isNaN(bTime)) return 0
