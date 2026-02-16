@@ -607,6 +607,9 @@ export function Home({ userHandle }: { userHandle?: string }) {
   const [fatalDetails, setFatalDetails] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState<'chat' | 'history' | 'settings'>('chat')
   const [showReflection, setShowReflection] = useState(false)
+  const [reflectionTopics, setReflectionTopics] = useState<
+    Array<{ topic: string; turnCount: number; percentage: number; checkmarks: number }>
+  >([])
   const inTurnRef = useRef(false)
   const manualStopRef = useRef(false)
   const recorderRef = useRef<SessionRecorder | null>(null)
@@ -2181,16 +2184,34 @@ export function Home({ userHandle }: { userHandle?: string }) {
     }
   }, [machineState, requestManualStop, pushLog])
 
-  // Show reflection modal when session completes
+  // Show reflection modal when session completes and fetch topic data
   useEffect(() => {
     if (machineState === 'doneSuccess' && hasStarted && !showReflection) {
-      // Delay showing reflection slightly so user sees the success state first
       const timer = setTimeout(() => {
         setShowReflection(true)
+        // Fetch topic progress for the reflection modal
+        const query = normalizedHandle ? `?handle=${encodeURIComponent(normalizedHandle)}` : ''
+        fetch(`/api/user-profile${query}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.ok && data.topicProgress?.topics) {
+              const maxM = data.topicProgress.maxMentions || 1
+              const mapped = data.topicProgress.topics.map(
+                (t: { label: string; mentions: number }) => ({
+                  topic: t.label,
+                  turnCount: t.mentions,
+                  percentage: maxM > 0 ? Math.round((t.mentions / maxM) * 100 * 10) / 10 : 0,
+                  checkmarks: Math.min(Math.round(((t.mentions / maxM) * 100) / 20), 5),
+                })
+              )
+              setReflectionTopics(mapped)
+            }
+          })
+          .catch(() => {})
       }, 500)
       return () => clearTimeout(timer)
     }
-  }, [machineState, hasStarted, showReflection])
+  }, [machineState, hasStarted, showReflection, normalizedHandle])
 
   const handleHeroPress = useCallback(() => {
     if (startupError || fatalError) return
@@ -2525,8 +2546,8 @@ export function Home({ userHandle }: { userHandle?: string }) {
         <EndOfSessionReflection
           _sessionId={sessionId || ''}
           handle={normalizedHandle}
-          personProfile={null} // TODO: Fetch from session when available
-          topicProgress={[]} // TODO: Calculate from session when available
+          personProfile={null}
+          topicProgress={reflectionTopics}
           totalTurns={turn}
           onSave={() => {
             // Save session and close reflection
