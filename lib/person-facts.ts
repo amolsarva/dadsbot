@@ -26,27 +26,110 @@ export type PersonProfile = {
 }
 
 /**
- * Extract person facts from conversation turns using Claude AI
+ * Extract person facts from conversation turns using OpenAI
  *
- * Uses the AnthropicSDK (or similar) to analyze conversation text and extract
+ * Uses OpenAI API to analyze conversation text and extract
  * key biographical information about the person being interviewed.
  */
 export async function extractPersonFactsFromTurns(
   turns: Array<{ role: 'user' | 'assistant'; text: string }>,
-  _handle: string
+  handle: string
 ): Promise<PersonProfile> {
-  // For now, return a placeholder/stub that will be filled in when we call Claude API
-  // This will be implemented in the API route that has access to the API key
+  try {
+    // If no API key, return minimal profile
+    if (!process.env.OPENAI_API_KEY) {
+      return {
+        handle,
+        updatedAt: new Date().toISOString(),
+        extractedFrom: {
+          totalTurns: turns.length,
+          topicsDiscussed: [],
+        },
+      }
+    }
 
-  const totalTurns = turns.length
+    // Import OpenAI client
+    const OpenAI = require('openai').default
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
-  return {
-    handle: _handle,
-    updatedAt: new Date().toISOString(),
-    extractedFrom: {
-      totalTurns,
-      topicsDiscussed: [],
-    },
+    // Build conversation transcript for analysis
+    const transcript = turns
+      .map((t) => `${t.role === 'user' ? 'Person' : 'Interviewer'}: ${t.text}`)
+      .join('\n\n')
+
+    // Call OpenAI to extract biographical facts
+    const response = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a biographical data extractor. Analyze the conversation transcript below and extract key facts about the person being interviewed.
+
+Return a JSON object with these fields (only include fields where you found clear information):
+{
+  "fullName": "Full name if mentioned",
+  "birthplace": "Where they were born",
+  "currentLocation": "Where they currently live",
+  "profession": "Their job/career",
+  "yearsExperience": "Number of years in their profession (as number, not string)",
+  "family": "Description of their family",
+  "personalityTraits": ["Array of personality traits mentioned"],
+  "memorableStories": ["Key stories they mentioned"],
+  "currentFocus": ["What they're currently focused on"]
+}
+
+Extract only information that is directly stated or strongly implied in the conversation.
+Return ONLY the JSON object, no other text.`,
+        },
+        {
+          role: 'user',
+          content: transcript,
+        },
+      ],
+    })
+
+    const content = response.choices[0]?.message?.content || '{}'
+
+    // Parse the JSON response
+    let extractedData: Partial<PersonProfile> = {}
+    try {
+      extractedData = JSON.parse(content)
+    } catch (parseErr) {
+      console.error('Failed to parse person facts JSON:', parseErr)
+      extractedData = {}
+    }
+
+    // Build final profile
+    const profile: PersonProfile = {
+      handle,
+      fullName: extractedData.fullName,
+      birthplace: extractedData.birthplace,
+      currentLocation: extractedData.currentLocation,
+      profession: extractedData.profession,
+      yearsExperience: extractedData.yearsExperience,
+      family: extractedData.family,
+      personalityTraits: extractedData.personalityTraits,
+      memorableStories: extractedData.memorableStories,
+      currentFocus: extractedData.currentFocus,
+      updatedAt: new Date().toISOString(),
+      extractedFrom: {
+        totalTurns: turns.length,
+        topicsDiscussed: [],
+      },
+    }
+
+    return profile
+  } catch (error) {
+    console.error('Error extracting person facts:', error)
+    // Fall back to minimal profile on error
+    return {
+      handle,
+      updatedAt: new Date().toISOString(),
+      extractedFrom: {
+        totalTurns: turns.length,
+        topicsDiscussed: [],
+      },
+    }
   }
 }
 

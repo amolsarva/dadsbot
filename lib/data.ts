@@ -7,6 +7,7 @@ import { formatSessionTitleFallback } from './fallback-texts'
 import { normalizeHandle } from './user-scope'
 import { resolveDefaultNotifyEmailServer } from './default-notify-email.server'
 import { updateDigestAfterSession } from './conversation-digest'
+import { extractPersonFactsFromTurns } from './person-facts'
 import {
   deleteSessionRecord,
   fetchAllSessions,
@@ -1037,6 +1038,20 @@ export async function finalizeSession(
     s.artifacts.session_audio = body.sessionAudioUrl
   }
   s.total_turns = turns.length
+
+  // Extract person profile from conversation turns
+  try {
+    const turnsForExtraction = (s.turns || []).map((t) => ({
+      role: t.role as 'user' | 'assistant',
+      text: t.text,
+    }))
+    const personProfile = await extractPersonFactsFromTurns(turnsForExtraction, s.user_handle)
+    // Store profile as JSON string in artifacts
+    s.artifacts.person_profile = JSON.stringify(personProfile)
+  } catch (error) {
+    console.error('Error extracting person profile during finalization:', error)
+    // Don't fail the whole session if profile extraction fails — just log and continue
+  }
 
   await persistSessionSnapshot(s)
 
