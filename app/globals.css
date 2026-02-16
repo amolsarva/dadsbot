@@ -2401,6 +2401,7 @@ input[type="checkbox"] {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  pointer-events: auto;
 }
 
 .floating-voice-recorder__content {
@@ -2440,12 +2441,6 @@ input[type="checkbox"] {
 
 .floating-voice-recorder__alerts::-webkit-scrollbar-thumb:hover {
   background: rgba(217, 119, 6, 0.5);
-}
-
-/* Ensure tab content has padding-top to avoid being hidden under floating recorder */
-.tab-content {
-  padding-top: 450px;
-  position: relative;
 }
 
 /* History Tab Profile Section */
