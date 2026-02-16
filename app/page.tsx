@@ -2339,36 +2339,47 @@ export function Home({ userHandle }: { userHandle?: string }) {
     ? 'Request failed'
     : null
 
+  // Memoize FloatingVoiceRecorder props to prevent unnecessary re-renders that restart voice
+  const floatingRecorderProps = useMemo(() => ({
+    sessionId,
+    machineState,
+    turn,
+    hasStarted,
+    finishRequested,
+    audioLevel,
+    providerError,
+    startupError,
+    startupDetails,
+    fatalError,
+    fatalDetails,
+    handleHeroPress,
+    requestFinish,
+    requestManualStop,
+    heroButtonClasses: [...heroButtonClasses],
+    heroStyles,
+    heroAriaLabel,
+    heroIcon,
+    heroBadge,
+    heroTitle,
+    heroDescription,
+    heroDisabled,
+    statusMessage,
+    showSkipButton,
+    statusHint,
+    diagnosticsHref,
+  }), [
+    sessionId, machineState, turn, hasStarted, finishRequested, audioLevel,
+    providerError, startupError, startupDetails, fatalError, fatalDetails,
+    handleHeroPress, requestFinish, requestManualStop, heroButtonClasses,
+    heroStyles, heroAriaLabel, heroIcon, heroBadge, heroTitle, heroDescription,
+    heroDisabled, statusMessage, showSkipButton, statusHint, diagnosticsHref,
+  ])
+
   return (
     <main className="home-main">
       {/* Floating Voice Recorder - stays fixed while tabs change */}
       <FloatingVoiceRecorder
-        sessionId={sessionId}
-        machineState={machineState}
-        turn={turn}
-        hasStarted={hasStarted}
-        finishRequested={finishRequested}
-        audioLevel={audioLevel}
-        providerError={providerError}
-        startupError={startupError}
-        startupDetails={startupDetails}
-        fatalError={fatalError}
-        fatalDetails={fatalDetails}
-        handleHeroPress={handleHeroPress}
-        requestFinish={requestFinish}
-        requestManualStop={requestManualStop}
-        heroButtonClasses={heroButtonClasses}
-        heroStyles={heroStyles}
-        heroAriaLabel={heroAriaLabel}
-        heroIcon={heroIcon}
-        heroBadge={heroBadge}
-        heroTitle={heroTitle}
-        heroDescription={heroDescription}
-        heroDisabled={heroDisabled}
-        statusMessage={statusMessage}
-        showSkipButton={showSkipButton}
-        statusHint={statusHint}
-        diagnosticsHref={diagnosticsHref}
+        {...floatingRecorderProps}
         onStartAgain={() => {
           try {
             recorderRef.current?.cancel()
