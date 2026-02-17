@@ -23,7 +23,6 @@ import { maskEmail } from '@/lib/default-notify-email.shared'
 import { ChatTab } from '@/components/tabs/chat-tab'
 import { HistoryTab } from '@/components/tabs/history-tab'
 import { SettingsTab } from '@/components/tabs/settings-tab'
-import { EndOfSessionReflection } from '@/components/end-of-session-reflection'
 import { FloatingVoiceRecorder } from '@/components/floating-voice-recorder'
 
 const HARD_TURN_LIMIT_MS = 90_000
@@ -606,10 +605,6 @@ export function Home({ userHandle }: { userHandle?: string }) {
   const [fatalError, setFatalError] = useState<string | null>(null)
   const [fatalDetails, setFatalDetails] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState<'chat' | 'history' | 'settings'>('chat')
-  const [showReflection, setShowReflection] = useState(false)
-  const [reflectionTopics, setReflectionTopics] = useState<
-    Array<{ topic: string; turnCount: number; percentage: number; checkmarks: number }>
-  >([])
   const inTurnRef = useRef(false)
   const manualStopRef = useRef(false)
   const recorderRef = useRef<SessionRecorder | null>(null)
@@ -2184,34 +2179,6 @@ export function Home({ userHandle }: { userHandle?: string }) {
     }
   }, [machineState, requestManualStop, pushLog])
 
-  // Show reflection modal when session completes and fetch topic data
-  useEffect(() => {
-    if (machineState === 'doneSuccess' && hasStarted && !showReflection) {
-      const timer = setTimeout(() => {
-        setShowReflection(true)
-        // Fetch topic progress for the reflection modal
-        const query = normalizedHandle ? `?handle=${encodeURIComponent(normalizedHandle)}` : ''
-        fetch(`/api/user-profile${query}`)
-          .then((res) => res.json())
-          .then((data) => {
-            if (data.ok && data.topicProgress?.topics) {
-              const maxM = data.topicProgress.maxMentions || 1
-              const mapped = data.topicProgress.topics.map(
-                (t: { label: string; mentions: number }) => ({
-                  topic: t.label,
-                  turnCount: t.mentions,
-                  percentage: maxM > 0 ? Math.round((t.mentions / maxM) * 100 * 10) / 10 : 0,
-                  checkmarks: Math.min(Math.round(((t.mentions / maxM) * 100) / 20), 5),
-                })
-              )
-              setReflectionTopics(mapped)
-            }
-          })
-          .catch(() => {})
-      }, 500)
-      return () => clearTimeout(timer)
-    }
-  }, [machineState, hasStarted, showReflection, normalizedHandle])
 
   const handleHeroPress = useCallback(() => {
     if (startupError || fatalError) return
@@ -2541,44 +2508,6 @@ export function Home({ userHandle }: { userHandle?: string }) {
         )}
       </div>
 
-      {/* End-of-Session Reflection Modal */}
-      {showReflection && (
-        <EndOfSessionReflection
-          _sessionId={sessionId || ''}
-          handle={normalizedHandle}
-          personProfile={null}
-          topicProgress={reflectionTopics}
-          totalTurns={turn}
-          onSave={() => {
-            // Save session and close reflection
-            setShowReflection(false)
-            setActiveTab('chat')
-          }}
-          onContinue={() => {
-            // Close reflection but keep session active
-            setShowReflection(false)
-          }}
-          onStartNew={() => {
-            // Reset session and close reflection
-            setShowReflection(false)
-            try {
-              recorderRef.current?.cancel()
-            } catch {}
-            recorderRef.current = null
-            sessionAudioUrlRef.current = null
-            sessionAudioDurationRef.current = 0
-            conversationRef.current = []
-            setHasStarted(false)
-            setTurn(0)
-            setFinishRequested(false)
-            finishRequestedRef.current = false
-            manualStopRef.current = false
-            setManualStopRequested(false)
-            updateMachineState('idle')
-            setActiveTab('chat')
-          }}
-        />
-      )}
     </main>
   )
 }
