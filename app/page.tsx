@@ -61,7 +61,7 @@ const DIAGNOSTIC_PROVIDER_ERROR_STORAGE_KEY = 'diagnostics:lastProviderError'
 const KNOWN_HANDLE_LIMIT = 8
 const SERVER_HANDLE_LIMIT = 12
 
-const formatClientPersistenceContext = () => ({
+const _formatClientPersistenceContext = () => ({
   env: {
     vercelEnv: process.env.NEXT_PUBLIC_VERCEL_ENV ?? null,
     supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'set' : 'missing',
@@ -73,13 +73,10 @@ const formatClientPersistenceContext = () => ({
 })
 
 const logClientDiagnostic = (
-  level: 'log' | 'error',
-  event: string,
-  payload?: Record<string, unknown>,
+  _level: 'log' | 'error',
+  _event: string,
+  _payload?: Record<string, unknown>,
 ) => {
-  const timestamp = new Date().toISOString()
-  const entry = { ...formatClientPersistenceContext(), ...(payload ?? {}) }
-  const _message = `[diagnostic] ${timestamp} client:${event} ${JSON.stringify(entry)}`
   // Diagnostic logging disabled - status shown in service grid instead
 }
 
@@ -1907,6 +1904,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
     MAX_TURNS,
     finalizeNow,
     manualStopRef,
+    playDoneDetectingSound,
     publishProviderError,
     publishTranscriptSynopsis,
     playAssistantResponse,
@@ -2230,7 +2228,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
   }, [fatalError, machineState, requestManualStop, startupError])
 
   const visual = STATE_VISUALS[machineState] ?? STATE_VISUALS.idle
-  const isInitialState = !hasStarted && machineState === 'idle'
+  const _isInitialState = !hasStarted && machineState === 'idle'
   const heroBadge = '' // Badge removed — title + description are sufficient
   const heroIcon = finishRequested ? '' : manualStopRequested ? '' : visual.icon
   const heroTitle = finishRequested
@@ -2243,27 +2241,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
     : manualStopRequested
       ? 'Finishing this turn…'
       : visual.description
-  const heroTone = finishRequested
-    ? { accent: '#f97316', gradient: 'linear-gradient(135deg, rgba(255, 186, 102, 0.36), rgba(255, 247, 237, 0.88))' }
-    : manualStopRequested
-      ? { accent: '#ef4444', gradient: 'linear-gradient(135deg, rgba(248, 113, 113, 0.26), rgba(244, 114, 182, 0.22))' }
-      : visual.tone
-  const heroStyles = {
-    '--hero-accent': heroTone.accent,
-    '--hero-gradient': heroTone.gradient,
-  } as CSSProperties
   const heroDisabled = Boolean(startupError || fatalError)
-  const heroButtonClasses = ['hero-button']
-  if (finishRequested) {
-    heroButtonClasses.push('is-finishing')
-  } else if (manualStopRequested) {
-    heroButtonClasses.push('is-stopping')
-  } else if (machineState === 'recording') {
-    heroButtonClasses.push('is-recording')
-  }
-  if (heroDisabled) {
-    heroButtonClasses.push('is-disabled')
-  }
   const heroAriaLabel = finishRequested
     ? 'Wrapping up the session'
     : manualStopRequested
@@ -2321,7 +2299,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
       ? 'Skip the pause if you’re ready for the next question.'
       : null
 
-  const providerErrorTimestamp = providerError?.at
+  const _providerErrorTimestamp = providerError?.at
     ? (() => {
         const parsed = new Date(providerError.at)
         if (Number.isNaN(parsed.valueOf())) return 'time unknown'
@@ -2335,45 +2313,67 @@ export function Home({ userHandle }: { userHandle?: string }) {
         return parsed.toLocaleString()
       })()
     : null
-  const providerErrorStatusLabel = providerError?.status
+  const _providerErrorStatusLabel = providerError?.status
     ? `HTTP ${providerError.status}`
     : providerError
     ? 'Request failed'
     : null
 
   // Memoize FloatingVoiceRecorder props to prevent unnecessary re-renders that restart voice
-  const floatingRecorderProps = useMemo(() => ({
-    sessionId,
-    machineState,
-    turn,
-    hasStarted,
-    finishRequested,
-    audioLevel,
-    providerError,
-    startupError,
-    startupDetails,
-    fatalError,
-    fatalDetails,
-    handleHeroPress,
-    requestFinish,
-    requestManualStop,
-    heroButtonClasses: [...heroButtonClasses],
-    heroStyles,
-    heroAriaLabel,
-    heroIcon,
-    heroBadge,
-    heroTitle,
-    heroDescription,
-    heroDisabled,
-    statusMessage,
-    showSkipButton,
-    statusHint,
-    diagnosticsHref,
-  }), [
+  const floatingRecorderProps = useMemo(() => {
+    const buttonClasses = ['hero-button']
+    if (finishRequested) {
+      buttonClasses.push('is-finishing')
+    } else if (manualStopRequested) {
+      buttonClasses.push('is-stopping')
+    } else if (machineState === 'recording') {
+      buttonClasses.push('is-recording')
+    }
+    if (heroDisabled) {
+      buttonClasses.push('is-disabled')
+    }
+    const tone = finishRequested
+      ? { accent: '#f97316', gradient: 'linear-gradient(135deg, rgba(255, 186, 102, 0.36), rgba(255, 247, 237, 0.88))' }
+      : manualStopRequested
+        ? { accent: '#ef4444', gradient: 'linear-gradient(135deg, rgba(248, 113, 113, 0.26), rgba(244, 114, 182, 0.22))' }
+        : visual.tone
+    const styles = {
+      '--hero-accent': tone.accent,
+      '--hero-gradient': tone.gradient,
+    } as CSSProperties
+    return {
+      sessionId,
+      machineState,
+      turn,
+      hasStarted,
+      finishRequested,
+      audioLevel,
+      providerError,
+      startupError,
+      startupDetails,
+      fatalError,
+      fatalDetails,
+      handleHeroPress,
+      requestFinish,
+      requestManualStop,
+      heroButtonClasses: buttonClasses,
+      heroStyles: styles,
+      heroAriaLabel,
+      heroIcon,
+      heroBadge,
+      heroTitle,
+      heroDescription,
+      heroDisabled,
+      statusMessage,
+      showSkipButton,
+      statusHint,
+      diagnosticsHref,
+    }
+  }, [
     sessionId, machineState, turn, hasStarted, finishRequested, audioLevel,
     providerError, startupError, startupDetails, fatalError, fatalDetails,
-    handleHeroPress, requestFinish, requestManualStop, heroButtonClasses,
-    heroStyles, heroAriaLabel, heroIcon, heroBadge, heroTitle, heroDescription,
+    handleHeroPress, requestFinish, requestManualStop, manualStopRequested,
+    visual, heroAriaLabel, heroIcon, heroBadge, heroTitle, heroDescription,
     heroDisabled, statusMessage, showSkipButton, statusHint, diagnosticsHref,
   ])
 
