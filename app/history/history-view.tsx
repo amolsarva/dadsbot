@@ -1,5 +1,5 @@
 "use client"
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ACTIVE_USER_HANDLE_STORAGE_KEY,
   normalizeHandle,
@@ -26,6 +26,7 @@ type Row = {
   duration_ms?: number
   summary?: string
   topic_tags?: string[]
+  key_facts?: string[]
 
   artifacts: {
     transcript_txt?: string | null
@@ -65,6 +66,8 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [profileLoading, setProfileLoading] = useState(true)
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
+  const [maintenanceRunning, setMaintenanceRunning] = useState(false)
+  const maintenanceRanRef = useRef(false)
 
   const resolveHandle = useCallback(() => {
     if (normalizedPropHandle) return normalizedPropHandle
@@ -137,6 +140,32 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
     loadHistory()
     loadProfile()
   }, [loadHistory, loadProfile])
+
+  // Run maintenance once on mount: re-summarize sessions with missing AI digests
+  useEffect(() => {
+    if (maintenanceRanRef.current) return
+    maintenanceRanRef.current = true
+
+    const handle = resolveHandle()
+    setMaintenanceRunning(true)
+
+    fetch('/api/maintenance', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ handle: handle || null }),
+    })
+      .then(async (res) => {
+        if (!res.ok) return
+        const data = await res.json().catch(() => null)
+        // If any sessions were digested or titled, reload history to show updated data
+        if (data && (data.digested?.length > 0 || data.titled?.length > 0)) {
+          await loadHistory()
+          await loadProfile()
+        }
+      })
+      .catch(() => {})
+      .finally(() => setMaintenanceRunning(false))
+  }, [resolveHandle, loadHistory, loadProfile])
 
   const handleDelete = useCallback(
     async (id: string) => {
@@ -270,6 +299,9 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
             Showing sessions saved for <span className="highlight">@{activeHandle}</span>
           </p>
         )}
+        {maintenanceRunning && (
+          <p className="page-subtext" style={{ opacity: 0.6 }}>Analyzing sessions...</p>
+        )}
         {rows.length === 0 ? (
           <div className="history-empty">
             <p className="font-medium">No interviews yet.</p>
@@ -296,8 +328,15 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
                       {s.status === 'in_progress' ? 'In Progress' : s.status === 'completed' ? 'Complete' : s.status}
                     </span>
                   </div>
-                  {s.summary && s.title ? (
+                  {s.summary ? (
                     <p className="history-summary">{s.summary}</p>
+                  ) : null}
+                  {s.key_facts && s.key_facts.length > 0 ? (
+                    <ul className="history-key-facts">
+                      {s.key_facts.slice(0, 4).map((fact, i) => (
+                        <li key={i} className="history-key-fact">{fact}</li>
+                      ))}
+                    </ul>
                   ) : null}
                   <div className="history-meta">
                     <span className="history-date">

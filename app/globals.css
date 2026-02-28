@@ -1206,6 +1206,24 @@ input[type="checkbox"] {
   color: var(--muted);
 }
 
+.history-key-facts {
+  margin: 6px 0 0 0;
+  padding: 0 0 0 16px;
+  list-style: none;
+}
+
+.history-key-fact {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--muted);
+  padding: 1px 0;
+}
+
+.history-key-fact::before {
+  content: "- ";
+  opacity: 0.5;
+}
+
 .history-duration {
   font-variant-numeric: tabular-nums;
 }
