@@ -720,6 +720,11 @@ textarea.diagnostics-log {
   color: #0a5f38;
 }
 
+/* Service status footer — always visible */
+.service-status-footer {
+  margin-top: 16px;
+}
+
 /* Compact service status grid */
 .service-grid {
   padding: 0;
@@ -1199,6 +1204,24 @@ input[type="checkbox"] {
   font-size: 14px;
   line-height: 1.45;
   color: var(--muted);
+}
+
+.history-key-facts {
+  margin: 6px 0 0 0;
+  padding: 0 0 0 16px;
+  list-style: none;
+}
+
+.history-key-fact {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--muted);
+  padding: 1px 0;
+}
+
+.history-key-fact::before {
+  content: "- ";
+  opacity: 0.5;
 }
 
 .history-duration {

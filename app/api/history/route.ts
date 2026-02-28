@@ -4,6 +4,7 @@ import { primeNetlifyBlobContextFromHeaders } from '@/lib/blob'
 import { fetchStoredSessions } from '@/lib/history'
 import { generateSessionTitle, SummarizableTurn } from '@/lib/session-title'
 import { formatSessionTitleFallback } from '@/lib/fallback-texts'
+import { getDigest, type SessionSummary } from '@/lib/conversation-digest'
 
 const TOPIC_TAGS: { tag: string; keywords: RegExp[] }[] = [
   { tag: 'Childhood', keywords: [/born/i, /birth/i, /child/i, /grew up/i, /mother/i, /father/i, /mom/i, /dad/i, /parent/i, /sibling/i] },
@@ -48,29 +49,51 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const handle = url.searchParams.get('handle')
   const items = await listSessions(handle)
+
+  // Load AI-generated digest for richer summaries
+  const digest = await getDigest(handle).catch(() => null)
+  const digestBySessionId = new Map<string, SessionSummary>()
+  if (digest?.sessions) {
+    for (const ds of digest.sessions) {
+      digestBySessionId.set(ds.sessionId, ds)
+    }
+  }
+
   const rows = items.map(s => {
     const summarizable: SummarizableTurn[] | undefined = s.turns
+    const digestEntry = digestBySessionId.get(s.id)
+
+    // Prefer: stored title > generated from turns > digest summary sentence > date fallback
+    const title =
+      s.title ||
+      generateSessionTitle(s.turns, { fallback: undefined }) ||
+      (digestEntry?.summary ? digestEntry.summary.split('.')[0].trim() + '.' : null) ||
+      formatSessionTitleFallback(s.created_at)
+
+    // Prefer: AI digest summary > built from turns > empty
+    const turnSummary = buildSummary(summarizable)
+    const summary = digestEntry?.summary || turnSummary || ''
+
+    // Merge topic tags from turns + digest
+    const turnTags = detectTags(summarizable)
+    const digestTopics = digestEntry?.topics || []
+    const allTags = Array.from(new Set([...turnTags, ...digestTopics.map(t => t.charAt(0).toUpperCase() + t.slice(1))]))
+
     return {
       id: s.id,
       created_at: s.created_at,
-      title:
-        s.title ||
-        generateSessionTitle(s.turns, {
-          fallback: formatSessionTitleFallback(s.created_at),
-        }) ||
-        null,
+      title,
       status: s.status,
       total_turns: s.total_turns,
       duration_ms: s.duration_ms || 0,
-      summary: buildSummary(summarizable),
-      topic_tags: detectTags(summarizable),
+      summary,
+      topic_tags: allTags,
+      key_facts: digestEntry?.keyFacts || [],
       artifacts: {
         transcript_txt: s.artifacts?.transcript_txt || null,
         transcript_json: s.artifacts?.transcript_json || null,
-
         session_manifest: s.artifacts?.session_manifest || s.artifacts?.manifest || null,
         session_audio: s.artifacts?.session_audio || null,
-
       },
       manifestUrl: s.artifacts?.session_manifest || s.artifacts?.manifest || null,
       firstAudioUrl: s.turns?.find(t => t.audio_blob_url)?.audio_blob_url || null,
@@ -88,19 +111,24 @@ export async function GET(request: Request) {
       ].filter(Boolean) as SummarizableTurn[],
     )
 
+    const storedDigestEntry = digestBySessionId.get(session.sessionId)
+    const storedDate = session.startedAt || session.endedAt || new Date().toISOString()
+    const storedTitle =
+      generateSessionTitle(summarizableTurns, { fallback: undefined }) ||
+      (storedDigestEntry?.summary ? storedDigestEntry.summary.split('.')[0].trim() + '.' : null) ||
+      formatSessionTitleFallback(storedDate)
+    const storedSummary = storedDigestEntry?.summary || buildSummary(summarizableTurns)
+
     rows.push({
       id: session.sessionId,
-      created_at: session.startedAt || session.endedAt || new Date().toISOString(),
-      title:
-        generateSessionTitle(summarizableTurns, {
-          fallback: formatSessionTitleFallback(session.startedAt || session.endedAt || new Date().toISOString()),
-        }) ||
-        null,
+      created_at: storedDate,
+      title: storedTitle,
       status: 'completed',
       total_turns: session.totalTurns,
       duration_ms: session.totalDurationMs || 0,
-      summary: buildSummary(summarizableTurns),
+      summary: storedSummary,
       topic_tags: detectTags(summarizableTurns),
+      key_facts: storedDigestEntry?.keyFacts || [],
       artifacts: {
         transcript_txt: session.artifacts?.transcript_txt || null,
         transcript_json: session.artifacts?.transcript_json || null,

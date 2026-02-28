@@ -28,6 +28,7 @@ type SessionPatch = {
   totalTurns?: number
   durationMs?: number
   status?: Session['status']
+  title?: string
 }
 
 type ManifestLookup = { id: string; uploadedAt?: string; url: string; data: any }
@@ -416,11 +417,28 @@ async function ensurePrimerLoadedFromStorage(handle?: string | null) {
 }
 
 function coerceSessionRecord(record: SessionRecord): RememberedSession {
+  let turns: SessionTurnRecord[] = []
+  if (Array.isArray(record.turns) && record.turns.length > 0) {
+    turns = [...record.turns]
+  } else if (record.artifacts?.session_turns) {
+    // Reconstruct turns from the JSON artifact stored at finalization
+    try {
+      const parsed = JSON.parse(record.artifacts.session_turns)
+      if (Array.isArray(parsed)) {
+        turns = parsed.map((t: any) => ({
+          id: t.id ?? '',
+          role: t.role ?? 'user',
+          text: t.text ?? '',
+          audio_blob_url: t.audio_blob_url ?? undefined,
+        }))
+      }
+    } catch {}
+  }
   return {
     ...record,
     user_handle: record.user_handle ?? null,
     artifacts: record.artifacts ?? {},
-    turns: Array.isArray(record.turns) ? [...record.turns] : [],
+    turns,
   }
 }
 
@@ -1178,6 +1196,9 @@ export async function mergeSessionArtifacts(id: string, patch: SessionPatch) {
   }
   if (patch.status) {
     session.status = patch.status
+  }
+  if (typeof patch.title === 'string' && patch.title.trim().length > 0) {
+    session.title = patch.title.trim()
   }
   try {
     await upsertSessionRecord(session)
