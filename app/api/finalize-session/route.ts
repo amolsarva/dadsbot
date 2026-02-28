@@ -6,6 +6,8 @@ import { getSession, mergeSessionArtifacts, rememberSessionManifest } from '@/li
 import { flagFox, listFoxes } from '@/lib/foxes'
 import { resolveDefaultNotifyEmailServer } from '@/lib/default-notify-email.server'
 import { extractPersonFactsFromTurns } from '@/lib/person-facts'
+import { generateSessionTitle, SummarizableTurn } from '@/lib/session-title'
+import { formatSessionTitleFallback } from '@/lib/fallback-texts'
 
 import { z } from 'zod'
 
@@ -311,6 +313,15 @@ export async function POST(req: NextRequest) {
     // Save turns as JSON artifact for recovery/debugging
     const turnsJson = JSON.stringify(turns)
 
+    // Generate a meaningful session title from conversation content
+    const summaryCandidates: SummarizableTurn[] = conversationLines.map((line) => ({
+      role: line.role,
+      text: line.text,
+    }))
+    const computedTitle = generateSessionTitle(summaryCandidates, {
+      fallback: formatSessionTitleFallback(startedAt || new Date().toISOString()),
+    })
+
     await mergeSessionArtifacts(sessionId, {
       artifacts: {
         session_manifest: manifestUrl,
@@ -323,7 +334,7 @@ export async function POST(req: NextRequest) {
       },
       totalTurns: turns.length,
       durationMs: sessionAudioDurationMs ?? totalDuration,
-
+      title: computedTitle || undefined,
       status: 'completed',
     })
 

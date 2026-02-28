@@ -24,6 +24,7 @@ import { ChatTab } from '@/components/tabs/chat-tab'
 import { HistoryTab } from '@/components/tabs/history-tab'
 import { SettingsTab } from '@/components/tabs/settings-tab'
 import { FloatingVoiceRecorder } from '@/components/floating-voice-recorder'
+import { ServiceStatusGrid } from '@/components/service-status-grid'
 
 const HARD_TURN_LIMIT_MS = 90_000
 const DEFAULT_BASELINE = 0.004
@@ -173,6 +174,28 @@ type DiagnosticProviderErrorPayload = {
 }
 
 export default function RootPage() {
+  const router = useRouter()
+  const [resolvedHandle, setResolvedHandle] = useState<string | null | undefined>(undefined)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      setResolvedHandle(null)
+      return
+    }
+    try {
+      const stored = window.localStorage.getItem(ACTIVE_USER_HANDLE_STORAGE_KEY)
+      const normalized = normalizeHandle(stored)
+      if (normalized) {
+        router.replace(`/u/${normalized}`)
+        return
+      }
+    } catch {}
+    setResolvedHandle(null)
+  }, [router])
+
+  // Show nothing while checking localStorage / redirecting
+  if (resolvedHandle === undefined) return null
+
   return <Home key="__default__" />
 }
 
@@ -1108,6 +1131,10 @@ export function Home({ userHandle }: { userHandle?: string }) {
 
   const finalizeNow = useCallback(async () => {
     if (!sessionId) return
+    // Prevent any auto-advance from firing during or after finalization
+    stopAutoAdvance()
+    finishRequestedRef.current = true
+    setFinishRequested(true)
     setManualStopRequested(false)
     manualStopRef.current = false
     updateMachineState('thinking')
@@ -1246,10 +1273,10 @@ export function Home({ userHandle }: { userHandle?: string }) {
       updateMachineState('readyToContinue')
     } finally {
       conversationRef.current = []
-      finishRequestedRef.current = false
-      setFinishRequested(false)
+      // Keep finishRequestedRef = true to prevent auto-advance from restarting
+      // the turn loop on a finalized session. It gets reset in onStartAgain.
     }
-  }, [normalizedHandle, pushLog, sessionId, toDone, updateMachineState])
+  }, [normalizedHandle, pushLog, sessionId, stopAutoAdvance, toDone, updateMachineState])
 
   const requestManualStop = useCallback(() => {
     if (!inTurnRef.current) return
@@ -2506,6 +2533,11 @@ export function Home({ userHandle }: { userHandle?: string }) {
         {activeTab === 'settings' && (
           <SettingsTab handle={normalizedHandle} />
         )}
+      </div>
+
+      {/* Service status lights — always visible regardless of active tab */}
+      <div className="panel-card service-status-footer">
+        <ServiceStatusGrid diagnosticsHref={diagnosticsHref} />
       </div>
 
     </main>

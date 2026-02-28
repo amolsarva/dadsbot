@@ -720,6 +720,11 @@ textarea.diagnostics-log {
   color: #0a5f38;
 }
 
+/* Service status footer — always visible */
+.service-status-footer {
+  margin-top: 16px;
+}
+
 /* Compact service status grid */
 .service-grid {
   padding: 0;

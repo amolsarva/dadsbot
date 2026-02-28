@@ -28,6 +28,7 @@ type SessionPatch = {
   totalTurns?: number
   durationMs?: number
   status?: Session['status']
+  title?: string
 }
 
 type ManifestLookup = { id: string; uploadedAt?: string; url: string; data: any }
@@ -1178,6 +1179,9 @@ export async function mergeSessionArtifacts(id: string, patch: SessionPatch) {
   }
   if (patch.status) {
     session.status = patch.status
+  }
+  if (typeof patch.title === 'string' && patch.title.trim().length > 0) {
+    session.title = patch.title.trim()
   }
   try {
     await upsertSessionRecord(session)
