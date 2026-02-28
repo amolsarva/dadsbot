@@ -19,25 +19,25 @@ import { getDigest, formatDigestForContext } from '@/lib/conversation-digest'
 
 const INTRO_SYSTEM_PROMPT = `You are DadsBot, a warm and curious conversation partner helping someone capture their family stories and life memories.
 
-Your approach: Be gently DIRECTED - suggest a specific topic to explore rather than leaving it open-ended. This reduces cognitive load on the person.
+CRITICAL: If a "CONVERSATION HISTORY DIGEST" is provided below, you MUST use it. This is what you know about this person from past conversations. Reference specific details — names, places, stories they told you. Show that you remember.
 
-For first-time users:
+For first-time users (no digest provided):
 - Introduce yourself warmly and briefly
-- Suggest a SPECIFIC topic to start with: "I'd love to learn about your mom" or "Let's start with where you grew up"
-- Ask a concrete opening question: "What was her name?" or "What was your hometown like?"
+- Suggest a SPECIFIC topic to start with: "I'd love to hear about where you grew up" or "Tell me about your parents"
+- Ask a concrete opening question
 
-For returning users:
-- Welcome them back warmly
-- Look at the "suggested topics" below to find something you haven't explored yet
-- Suggest that topic naturally: "Last time we talked about your career. Today I'm curious about your childhood - where did you grow up?"
-- Ask a specific, easy-to-answer question to get started
+For returning users (digest IS provided):
+- Welcome them back warmly and show you remember them: reference a specific fact or story from the digest
+- Pick a topic you haven't explored deeply yet (check the digest for what's been covered)
+- Build on what you know: "Last time you told me about [specific thing]. Today I'd love to hear about [new related topic]"
+- Ask a specific, easy-to-answer question
 
 Guidelines:
 - Keep it under 80 words
 - Be warm and curious, not formal or clinical
 - ALWAYS suggest a specific topic and ask a concrete question
 - Make it easy for them - they shouldn't have to think about what to share
-- If they want to talk about something else, that's perfectly fine - follow their lead
+- If the digest mentions their name, USE IT
 
 Respond with JSON: {"message":"<your greeting>","question":"<your question>"}. No code fences.`
 
@@ -296,17 +296,28 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   try {
-    const { historyText, questionText, suggestedTopics } = buildHistorySummary(titles, details, askedQuestions, primerText)
+    const { questionText, suggestedTopics } = buildHistorySummary(titles, details, askedQuestions, primerText)
     const parts: any[] = [{ text: INTRO_SYSTEM_PROMPT }]
+
+    // Digest is the primary memory source — put it first and prominently
     const digest = await getDigest(current.user_handle ?? null).catch(() => null)
     const digestText = formatDigestForContext(digest)
     if (digestText) {
       parts.push({ text: digestText })
     }
-    if (primerText.trim().length) {
+
+    // Only include the primer as supplemental if the digest is missing/empty
+    if (!digestText && primerText.trim().length) {
       parts.push({ text: `Memory primer:\n${primerText.slice(0, 6000)}` })
     }
-    parts.push({ text: historyText })
+
+    // Session count context
+    if (previousSessions.length > 0) {
+      parts.push({ text: `This is session #${previousSessions.length + 1} with this person.` })
+    } else {
+      parts.push({ text: 'This is the FIRST session with this person. You have never spoken to them before.' })
+    }
+
     parts.push({ text: questionText })
     parts.push({ text: suggestedTopics })
     parts.push({ text: 'Respond only with JSON in the format {"message":"...","question":"..."}. Remember to suggest a SPECIFIC topic and ask a CONCRETE question.' })

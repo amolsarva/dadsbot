@@ -6,7 +6,7 @@ import { generateSessionTitle, SummarizableTurn } from './session-title'
 import { formatSessionTitleFallback } from './fallback-texts'
 import { normalizeHandle } from './user-scope'
 import { resolveDefaultNotifyEmailServer } from './default-notify-email.server'
-import { updateDigestAfterSession } from './conversation-digest'
+import { updateDigestAfterSession, getDigest } from './conversation-digest'
 import { extractPersonFactsFromTurns } from './person-facts'
 import {
   deleteSessionRecord,
@@ -657,7 +657,29 @@ export async function rebuildMemoryPrimer(
   const sessions = Array.from(mem.sessions.values()).filter(
     (session) => primerKeyForHandle(session.user_handle ?? null) === key,
   )
-  const primerText = buildMemoryPrimerFromSessions(handle ?? null, sessions)
+  let primerText = buildMemoryPrimerFromSessions(handle ?? null, sessions)
+
+  // Prepend the AI-generated digest narrative if available — it's far richer than keyword extraction
+  try {
+    const digest = await getDigest(handle)
+    if (digest?.overallNarrative) {
+      const digestSection = [
+        '## AI-Generated Profile',
+        '',
+        digest.overallNarrative,
+        '',
+        ...(digest.sessions.length > 0
+          ? [
+              `Total sessions analyzed: ${digest.totalSessions}`,
+              `Last updated: ${digest.updatedAt}`,
+              '',
+            ]
+          : []),
+      ].join('\n')
+      primerText = digestSection + '\n---\n\n' + primerText
+    }
+  } catch {}
+
   const blob = await putBlobFromBuffer(
     memoryPrimerPathForKey(key),
     Buffer.from(primerText, 'utf8'),
