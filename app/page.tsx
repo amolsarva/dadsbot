@@ -645,6 +645,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
   const startupErrorRef = useRef<string | null>(null)
   const accountSwitcherRef = useRef<HTMLDivElement | null>(null)
   const newUserInputRef = useRef<HTMLInputElement | null>(null)
+  const maintenanceRanRef = useRef(false)
 
   const stopAutoAdvance = useCallback(() => {
     if (typeof window !== 'undefined' && autoAdvanceTimeoutRef.current !== null) {
@@ -726,6 +727,18 @@ export function Home({ userHandle }: { userHandle?: string }) {
   useEffect(() => {
     setHandleInput(displayHandle ?? '')
   }, [displayHandle])
+
+  // Run background maintenance on startup so AI digests are ready before session intros
+  useEffect(() => {
+    if (maintenanceRanRef.current) return
+    maintenanceRanRef.current = true
+
+    fetch('/api/maintenance', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ handle: normalizedHandle }),
+    }).catch(() => {})
+  }, [normalizedHandle])
 
   const availableHandles = useMemo(
     () =>
