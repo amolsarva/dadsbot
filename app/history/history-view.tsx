@@ -112,7 +112,11 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
       const query = handle ? `?handle=${encodeURIComponent(handle)}` : ''
       const api = await (await fetch(`/api/history${query}`)).json()
       const serverRows: Row[] = api?.items || []
-      const sorted = [...serverRows].sort((a, b) => {
+      // Filter out stale sessions (in_progress with 0 turns = abandoned)
+      const meaningful = serverRows.filter(
+        (r) => !(r.status === 'in_progress' && r.total_turns === 0)
+      )
+      const sorted = [...meaningful].sort((a, b) => {
         const aTime = new Date(a.created_at).getTime()
         const bTime = new Date(b.created_at).getTime()
         if (Number.isNaN(aTime) && Number.isNaN(bTime)) return 0
@@ -250,8 +254,9 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
           <div className="profile-empty">
             <p>No profile built yet.</p>
             <p className="profile-empty-hint">
-              Complete a few interview sessions to start building your story profile.
-              I&apos;ll remember details about your life, family, and experiences.
+              {rows.length > 0
+                ? `You have ${rows.length} session${rows.length !== 1 ? 's' : ''} recorded. Complete a full interview so I can start building your story profile.`
+                : 'Complete a few interview sessions to start building your story profile. I\u2019ll remember details about your life, family, and experiences.'}
             </p>
           </div>
         )}
@@ -286,12 +291,12 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
                     <span className="history-expand-icon">
                       {expandedSessions.has(s.id) ? '▼' : '▶'}
                     </span>
-                    <h3>{s.title || `Session on ${new Date(s.created_at).toLocaleDateString()}`}</h3>
+                    <h3>{s.title || s.summary || new Date(s.created_at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</h3>
                     <span className={`history-status history-status--${s.status.replace('_', '-')}`}>
                       {s.status === 'in_progress' ? 'In Progress' : s.status === 'completed' ? 'Complete' : s.status}
                     </span>
                   </div>
-                  {s.summary ? (
+                  {s.summary && s.title ? (
                     <p className="history-summary">{s.summary}</p>
                   ) : null}
                   <div className="history-meta">

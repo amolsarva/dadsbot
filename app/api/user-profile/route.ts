@@ -88,8 +88,10 @@ export async function GET(req: NextRequest) {
     // Calculate topic progress
     const topicProgress = countTopicMentions(allUserText)
     const maxMentions = Math.max(...topicProgress.map((t) => t.mentions), 1)
-    const sessionCount = sessions.length
-    const totalTurns = sessions.reduce((sum, s) => sum + s.total_turns, 0)
+    // Only count sessions that have actual conversation turns (exclude stale/abandoned)
+    const activeSessions = sessions.filter((s) => s.total_turns > 0)
+    const sessionCount = activeSessions.length
+    const totalTurns = activeSessions.reduce((sum, s) => sum + s.total_turns, 0)
 
     if (!primer.text || primer.text.trim().length === 0) {
       return NextResponse.json({
@@ -203,6 +205,19 @@ function parsePrimerMarkdown(text: string): ProfileSection[] {
     sections.push(currentSection)
   }
 
-  // Filter out empty sections
-  return sections.filter(s => s.highlights.length > 0 || s.archived.length > 0)
+  // Filter out empty sections and generic interview-guide sections
+  const guidePatterns = [
+    /guide\s*map/i,
+    /suggested.*angles/i,
+    /next\s*angles/i,
+    /interview\s*guide/i,
+    /question\s*bank/i,
+    /prompts?\s*to\s*(ask|try)/i,
+  ]
+  return sections.filter(s => {
+    if (s.highlights.length === 0 && s.archived.length === 0) return false
+    // Skip sections that are interview instructions rather than personal memories
+    if (guidePatterns.some(p => p.test(s.title))) return false
+    return true
+  })
 }

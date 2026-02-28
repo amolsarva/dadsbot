@@ -33,8 +33,8 @@ export async function extractPersonFactsFromTurns(
   turns: Array<{ role: 'user' | 'assistant'; text: string }>,
   handle: string | null
 ): Promise<PersonProfile> {
+  const normalizedHandle = handle ?? 'unknown'
   try {
-    const normalizedHandle = handle ?? 'unknown'
 
     // If no API key, return minimal profile
     if (!process.env.OPENAI_API_KEY) {

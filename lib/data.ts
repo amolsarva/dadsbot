@@ -1056,7 +1056,7 @@ export async function finalizeSession(
       role: t.role as 'user' | 'assistant',
       text: t.text,
     }))
-    const personProfile = await extractPersonFactsFromTurns(turnsForExtraction, s.user_handle)
+    const personProfile = await extractPersonFactsFromTurns(turnsForExtraction, s.user_handle ?? null)
     // Store profile as JSON string in artifacts
     s.artifacts.person_profile = JSON.stringify(personProfile)
   } catch (error) {

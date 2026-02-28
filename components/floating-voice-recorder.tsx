@@ -78,11 +78,10 @@ export function FloatingVoiceRecorder({
   diagnosticsHref,
   onStartAgain,
 }: FloatingVoiceRecorderProps) {
-  // Show floating recorder when session is active or in progress
   const isSessionActive = hasStarted && (machineState !== 'idle' || finishRequested)
 
   return (
-    <div className={`floating-voice-recorder${isSessionActive ? ' floating-voice-recorder--active' : ''}`}>
+    <div className="floating-voice-recorder">
       <div className="floating-voice-recorder__container">
         <div className="floating-voice-recorder__content">
           <button
@@ -119,38 +118,40 @@ export function FloatingVoiceRecorder({
             </span>
           </button>
 
-          <div className="status-block">
-            <div className="status-text">{statusMessage}</div>
-            {showSkipButton ? (
-              <div className="status-actions">
+          {isSessionActive && (
+            <div className="status-block">
+              <div className="status-text">{statusMessage}</div>
+              {showSkipButton ? (
+                <div className="status-actions">
+                  <button
+                    type="button"
+                    onClick={requestManualStop}
+                    className="btn-secondary btn-large status-skip"
+                  >
+                    Next question
+                  </button>
+                </div>
+              ) : null}
+              {statusHint ? <div className="status-hint">{statusHint}</div> : null}
+              {machineState === 'doneSuccess' ? (
                 <button
-                  type="button"
-                  onClick={requestManualStop}
-                  className="btn-secondary btn-large status-skip"
+                  onClick={onStartAgain}
+                  className="btn-secondary btn-large"
                 >
-                  ⏭ Next question
+                  Start Again
                 </button>
-              </div>
-            ) : null}
-            {statusHint ? <div className="status-hint">{statusHint}</div> : null}
-            {machineState === 'doneSuccess' ? (
-              <button
-                onClick={onStartAgain}
-                className="btn-secondary btn-large"
-              >
-                Start Again
-              </button>
-            ) : null}
-            {machineState !== 'doneSuccess' && (
-              <button
-                onClick={requestFinish}
-                disabled={heroDisabled || !hasStarted || finishRequested}
-                className="btn-outline"
-              >
-                I&apos;m finished
-              </button>
-            )}
-          </div>
+              ) : null}
+              {machineState !== 'doneSuccess' && (
+                <button
+                  onClick={requestFinish}
+                  disabled={heroDisabled || !hasStarted || finishRequested}
+                  className="btn-outline"
+                >
+                  I&apos;m finished
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Error Alerts (in floating context) */}
