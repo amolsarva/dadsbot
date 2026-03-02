@@ -11,7 +11,6 @@ interface PersonProfileSummaryProps {
 export function PersonProfileSummary({ handle, sessionId }: PersonProfileSummaryProps) {
   const [profile, setProfile] = useState<PersonProfile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [_error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!handle || !sessionId) {
@@ -22,21 +21,20 @@ export function PersonProfileSummary({ handle, sessionId }: PersonProfileSummary
     const fetchProfile = async () => {
       try {
         setLoading(true)
-        setError(null)
 
         const response = await fetch(
           `/api/person-profile?sessionId=${encodeURIComponent(sessionId)}&handle=${encodeURIComponent(handle)}`
         )
 
         if (!response.ok) {
-          throw new Error(`Failed to fetch profile: ${response.statusText}`)
+          setProfile(null)
+          return
         }
 
         const data = await response.json()
         setProfile(data)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error')
-        console.error('Error fetching person profile:', err)
+      } catch {
+        setProfile(null)
       } finally {
         setLoading(false)
       }

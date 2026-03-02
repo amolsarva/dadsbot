@@ -5,3 +5,4 @@ tsconfig.tsbuildinfo
 .env.*
 *token*
 *secret*
+.DS_Store

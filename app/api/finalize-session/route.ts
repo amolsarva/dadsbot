@@ -8,6 +8,7 @@ import { resolveDefaultNotifyEmailServer } from '@/lib/default-notify-email.serv
 import { extractPersonFactsFromTurns } from '@/lib/person-facts'
 import { generateSessionTitle, SummarizableTurn } from '@/lib/session-title'
 import { formatSessionTitleFallback } from '@/lib/fallback-texts'
+import { updateDigestAfterSession } from '@/lib/conversation-digest'
 
 import { z } from 'zod'
 
@@ -309,6 +310,24 @@ export async function POST(req: NextRequest) {
       startedAt || endedAt || new Date().toISOString(),
       manifestUrl,
     )
+
+    // Build cumulative AI-powered conversation digest for this user
+    try {
+      const inMemory = await getSession(sessionId)
+      const digestHandle = inMemory?.user_handle ?? null
+      const digestTurns = conversationLines
+        .filter((line) => line.text && line.text.trim().length > 0)
+        .map((line) => ({ role: line.role, text: line.text }))
+      if (digestTurns.length > 0) {
+        await updateDigestAfterSession(digestHandle, sessionId, digestTurns, {
+          date: startedAt || new Date().toISOString(),
+          turnCount: turns.length,
+          durationMs: sessionAudioDurationMs ?? totalDuration,
+        })
+      }
+    } catch (err) {
+      console.error('Error updating conversation digest in finalize-session:', err)
+    }
 
     // Save turns as JSON artifact for recovery/debugging
     const turnsJson = JSON.stringify(turns)
