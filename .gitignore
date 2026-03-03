@@ -1,8 +1,22 @@
-node_modules
-.next
+node_modules/
+.next/
+.vercel/
+dist/
 tsconfig.tsbuildinfo
 .env
 .env.*
+.env*
+!.env.example
 *token*
 *secret*
 .DS_Store
+coverage/
+playwright-report/
+.vscode/
+.idea/
+*.log
+!ops/**/*.log
+# Local secrets / scratch files
+ENVgithubkeyDONTPUSH.md
+keys.txt
+dadsbot-supabase-testing.txt
