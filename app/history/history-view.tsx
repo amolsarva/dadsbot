@@ -40,6 +40,63 @@ type Row = {
   sessionAudioUrl?: string | null
 }
 
+type FixerReport = {
+  ok: boolean
+  handle: string | null
+  processedSessions: number
+  digestEntries: number
+  skippedSessions: number
+  titlesUpdated: number
+  storageSessions: number
+  supabaseSessions: number
+  startedAt: string
+  completedAt: string
+  durationMs: number
+  notes: string[]
+}
+
+type MetricsSnapshot = {
+  sessionCount: number
+  fileCount: number
+  storageBytes: number
+  audioFileCount: number
+  transcriptFileCount: number
+  manifestFileCount: number
+  totalDurationMs?: number
+  totalTurns?: number
+  lastSessionAt?: string | null
+}
+
+type MetricsResponse = {
+  ok: boolean
+  handle: string | null
+  generatedAt: string
+  scoped: MetricsSnapshot
+  global: MetricsSnapshot
+  scopedLimitHit: boolean
+  blobCount: number
+}
+
+function formatBytes(bytes?: number | null) {
+  if (!bytes || bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit += 1
+  }
+  const precision = value >= 10 || unit === 0 ? 0 : 1
+  return `${value.toFixed(precision)} ${units[unit]}`
+}
+
+function formatTimestamp(value?: string | null) {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+}
+
 function formatDuration(ms: number): string {
   if (!ms || ms <= 0) return ''
   const totalSeconds = Math.round(ms / 1000)
@@ -67,6 +124,12 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
   const [profileLoading, setProfileLoading] = useState(true)
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
   const [maintenanceRunning, setMaintenanceRunning] = useState(false)
+  const [metrics, setMetrics] = useState<MetricsResponse | null>(null)
+  const [metricsLoading, setMetricsLoading] = useState(true)
+  const [metricsError, setMetricsError] = useState<string | null>(null)
+  const [fixerStatus, setFixerStatus] = useState<'idle' | 'running' | 'success' | 'error'>('idle')
+  const [fixerReport, setFixerReport] = useState<FixerReport | null>(null)
+  const [fixerError, setFixerError] = useState<string | null>(null)
   const maintenanceRanRef = useRef(false)
 
   const resolveHandle = useCallback(() => {
@@ -136,10 +199,32 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
     }
   }, [resolveHandle, onSessionsLoaded])
 
+  const loadMetrics = useCallback(async () => {
+    setMetricsLoading(true)
+    setMetricsError(null)
+    try {
+      const handle = resolveHandle()
+      const query = handle ? `?handle=${encodeURIComponent(handle)}` : ''
+      const resp = await fetch(`/api/history/metrics${query}`)
+      const data = await resp.json().catch(() => null)
+      if (resp.ok && data && data.ok !== false) {
+        setMetrics(data as MetricsResponse)
+      } else {
+        throw new Error(data?.error || 'Failed to load metrics')
+      }
+    } catch (err) {
+      setMetrics(null)
+      setMetricsError(err instanceof Error ? err.message : 'Failed to load metrics')
+    } finally {
+      setMetricsLoading(false)
+    }
+  }, [resolveHandle])
+
   useEffect(() => {
     loadHistory()
     loadProfile()
-  }, [loadHistory, loadProfile])
+    loadMetrics()
+  }, [loadHistory, loadProfile, loadMetrics])
 
   // Run maintenance once on mount: re-summarize sessions with missing AI digests
   useEffect(() => {
@@ -197,6 +282,31 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
       setClearingAll(false)
     }
   }, [resolveHandle])
+
+  const runFixer = useCallback(async () => {
+    setFixerStatus('running')
+    setFixerError(null)
+    try {
+      const handle = resolveHandle()
+      const resp = await fetch('/api/history/fixer', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ handle: handle ?? null }),
+      })
+      const data = await resp.json().catch(() => null)
+      if (!resp.ok || !data || data.ok === false) {
+        throw new Error(data?.error || 'Unable to repair history')
+      }
+      setFixerReport(data as FixerReport)
+      setFixerStatus('success')
+      await loadHistory()
+      await loadProfile()
+      await loadMetrics()
+    } catch (err) {
+      setFixerStatus('error')
+      setFixerError(err instanceof Error ? err.message : 'Failed to repair history')
+    }
+  }, [resolveHandle, loadHistory, loadProfile, loadMetrics])
 
   const scopedSessionLink = useCallback(
     (id: string) => {
@@ -292,6 +402,55 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
       </div>
 
       {/* Sessions List */}
+      <div className="panel-card history-fixer-card">
+        <div className="history-fixer-header">
+          <h2 className="page-heading">History Fixer</h2>
+          <button
+            type="button"
+            className="btn-secondary btn-small"
+            onClick={runFixer}
+            disabled={fixerStatus === 'running'}
+          >
+            {fixerStatus === 'running' ? 'Repairing…' : 'Run fixer'}
+          </button>
+        </div>
+        <p className="page-subtext">
+          Re-scan stored sessions and rebuild summaries for{' '}
+          <span className="highlight">{activeHandle ? `@${activeHandle}` : 'unassigned recordings'}</span>.
+        </p>
+        {fixerStatus === 'running' && (
+          <p className="history-fixer-status">Analyzing transcripts and rewriting summaries…</p>
+        )}
+        {fixerError && <p className="history-fixer-error">{fixerError}</p>}
+        {fixerReport && (
+          <div className="history-fixer-report">
+            <div>
+              <span className="history-fixer-label">Sessions scanned</span>
+              <span className="history-fixer-value">{fixerReport.processedSessions}</span>
+            </div>
+            <div>
+              <span className="history-fixer-label">Summaries refreshed</span>
+              <span className="history-fixer-value">{fixerReport.digestEntries}</span>
+            </div>
+            <div>
+              <span className="history-fixer-label">Titles updated</span>
+              <span className="history-fixer-value">{fixerReport.titlesUpdated}</span>
+            </div>
+            <div>
+              <span className="history-fixer-label">Skipped (no text)</span>
+              <span className="history-fixer-value">{fixerReport.skippedSessions}</span>
+            </div>
+          </div>
+        )}
+        {fixerReport?.notes?.length ? (
+          <ul className="history-fixer-notes">
+            {fixerReport.notes.map((note, idx) => (
+              <li key={idx}>{note}</li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+
       <div className="panel-card">
         <h2 className="page-heading">Sessions</h2>
         {activeHandle && (
@@ -435,6 +594,89 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
             {clearingAll ? 'Clearing…' : 'Clear all history'}
           </button>
         </div>
+      </div>
+
+      <div className="panel-card history-metrics-card">
+        <h2 className="page-heading">Database Metrics</h2>
+        {metricsLoading ? (
+          <p className="history-metrics-status">Gathering storage stats…</p>
+        ) : metrics ? (
+          <div className="history-metrics-grid">
+            <div className="history-metrics-panel">
+              <h3>{activeHandle ? `@${activeHandle}` : 'Unassigned handle'}</h3>
+              <ul className="history-metrics-list">
+                <li>
+                  <span>Sessions</span>
+                  <strong>{metrics.scoped.sessionCount}</strong>
+                </li>
+                <li>
+                  <span>Files stored</span>
+                  <strong>{metrics.scoped.fileCount}</strong>
+                </li>
+                <li>
+                  <span>Storage used</span>
+                  <strong>{formatBytes(metrics.scoped.storageBytes)}</strong>
+                </li>
+                <li>
+                  <span>Audio clips</span>
+                  <strong>{metrics.scoped.audioFileCount}</strong>
+                </li>
+                <li>
+                  <span>Transcripts</span>
+                  <strong>{metrics.scoped.transcriptFileCount}</strong>
+                </li>
+                <li>
+                  <span>Total turns</span>
+                  <strong>{metrics.scoped.totalTurns ?? 0}</strong>
+                </li>
+                <li>
+                  <span>Talk time</span>
+                  <strong>{formatDuration(metrics.scoped.totalDurationMs || 0) || '—'}</strong>
+                </li>
+                <li>
+                  <span>Last session</span>
+                  <strong>{formatTimestamp(metrics.scoped.lastSessionAt)}</strong>
+                </li>
+              </ul>
+            </div>
+            <div className="history-metrics-panel">
+              <h3>Whole app</h3>
+              <ul className="history-metrics-list">
+                <li>
+                  <span>Sessions indexed</span>
+                  <strong>{metrics.global.sessionCount}</strong>
+                </li>
+                <li>
+                  <span>Files saved</span>
+                  <strong>{metrics.global.fileCount}</strong>
+                </li>
+                <li>
+                  <span>Total storage</span>
+                  <strong>{formatBytes(metrics.global.storageBytes)}</strong>
+                </li>
+                <li>
+                  <span>Audio files</span>
+                  <strong>{metrics.global.audioFileCount}</strong>
+                </li>
+                <li>
+                  <span>Transcripts</span>
+                  <strong>{metrics.global.transcriptFileCount}</strong>
+                </li>
+                <li>
+                  <span>Manifests</span>
+                  <strong>{metrics.global.manifestFileCount}</strong>
+                </li>
+              </ul>
+            </div>
+          </div>
+        ) : (
+          <p className="history-metrics-error">{metricsError || 'Metrics unavailable.'}</p>
+        )}
+        {metrics?.scopedLimitHit && (
+          <p className="history-metrics-note">
+            Showing the latest 500 sessions for this handle. Run the fixer to refresh older data.
+          </p>
+        )}
       </div>
     </main>
   )

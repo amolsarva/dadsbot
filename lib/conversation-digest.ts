@@ -8,7 +8,7 @@
  * Stored at: memory/digests/{handle}.json
  */
 
-import { putBlobFromBuffer, readBlob } from '@/lib/blob'
+import { deleteBlob, putBlobFromBuffer, readBlob } from '@/lib/blob'
 import { normalizeHandle } from '@/lib/user-scope'
 
 // ---------- types ----------
@@ -53,6 +53,16 @@ export async function getDigest(handle: string | null | undefined): Promise<Conv
     return JSON.parse(text) as ConversationDigest
   } catch {
     return null
+  }
+}
+
+export async function clearDigest(handle: string | null | undefined): Promise<boolean> {
+  try {
+    await deleteBlob(digestPathForHandle(handle))
+    return true
+  } catch (err) {
+    console.error('[conversation-digest] Failed to clear digest:', err)
+    return false
   }
 }
 

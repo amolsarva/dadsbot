@@ -48,7 +48,12 @@ export async function GET(request: Request) {
   primeNetlifyBlobContextFromHeaders(request.headers)
   const url = new URL(request.url)
   const handle = url.searchParams.get('handle')
-  const items = await listSessions(handle)
+  let items: Awaited<ReturnType<typeof listSessions>> = []
+  try {
+    items = await listSessions(handle)
+  } catch (err) {
+    console.error('[history] listSessions failed, continuing with stored sessions only:', err)
+  }
 
   // Load AI-generated digest for richer summaries
   const digest = await getDigest(handle).catch(() => null)
