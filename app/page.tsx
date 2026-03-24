@@ -2400,159 +2400,160 @@ export function Home({ userHandle }: { userHandle?: string }) {
         }}
       />
 
-      <header className="home-header">
-        <div className="account-switcher" ref={accountSwitcherRef}>
-          <button
-            type="button"
-            className="account-switcher__trigger"
-            aria-haspopup="listbox"
-            aria-expanded={isAccountMenuOpen}
-            onClick={() => {
-              if (isAccountMenuOpen) {
-                closeAccountMenu()
-                setHandleInput(displayHandle ?? '')
-              } else {
-                setIsAccountMenuOpen(true)
-                setIsAddingNewUser(false)
-                setNewUserError(null)
-                setHandleInput(displayHandle ?? '')
-              }
-            }}
-          >
-            <span className="account-switcher__label">Account</span>
-            <span className="account-switcher__value">
-              {normalizedHandle ? `@${normalizedHandle}` : 'Default'}
-            </span>
-            <span
-              className={`account-switcher__chevron${
-                isAccountMenuOpen ? ' account-switcher__chevron--open' : ''
-              }`}
-              aria-hidden="true"
-            />
-          </button>
-          {isAccountMenuOpen ? (
-            <div className="account-switcher__menu" role="menu">
-              {normalizedHandle ? (
+      <div className="home-shell">
+        <aside className="home-sidebar">
+          <div className="account-switcher" ref={accountSwitcherRef}>
+            <button
+              type="button"
+              className="account-switcher__trigger"
+              aria-haspopup="listbox"
+              aria-expanded={isAccountMenuOpen}
+              onClick={() => {
+                if (isAccountMenuOpen) {
+                  closeAccountMenu()
+                  setHandleInput(displayHandle ?? '')
+                } else {
+                  setIsAccountMenuOpen(true)
+                  setIsAddingNewUser(false)
+                  setNewUserError(null)
+                  setHandleInput(displayHandle ?? '')
+                }
+              }}
+            >
+              <span className="account-switcher__label">Account</span>
+              <span className="account-switcher__value">
+                {normalizedHandle ? `@${normalizedHandle}` : 'Default'}
+              </span>
+              <span
+                className={`account-switcher__chevron${
+                  isAccountMenuOpen ? ' account-switcher__chevron--open' : ''
+                }`}
+                aria-hidden="true"
+              />
+            </button>
+            {isAccountMenuOpen ? (
+              <div className="account-switcher__menu" role="menu">
+                {normalizedHandle ? (
+                  <button
+                    type="button"
+                    className="account-switcher__option"
+                    role="menuitem"
+                    onClick={handleClearSelection}
+                  >
+                    Default account
+                  </button>
+                ) : null}
+                {availableHandles.map((handle) => (
+                  <button
+                    key={handle}
+                    type="button"
+                    className="account-switcher__option"
+                    role="menuitem"
+                    onClick={() => handleKnownSelect(handle)}
+                  >
+                    @{handle}
+                  </button>
+                ))}
                 <button
                   type="button"
                   className="account-switcher__option"
                   role="menuitem"
-                  onClick={handleClearSelection}
-                >
-                  Default account
-                </button>
-              ) : null}
-              {availableHandles.map((handle) => (
-                <button
-                  key={handle}
-                  type="button"
-                  className="account-switcher__option"
-                  role="menuitem"
-                  onClick={() => handleKnownSelect(handle)}
-                >
-                  @{handle}
-                </button>
-              ))}
-              <button
-                type="button"
-                className="account-switcher__option"
-                role="menuitem"
-                onClick={() => {
-                  setIsAddingNewUser((prev) => {
-                    const next = !prev
-                    if (next) {
-                      setHandleInput('')
-                    } else {
-                      setHandleInput(displayHandle ?? '')
-                    }
-                    setNewUserError(null)
-                    return next
-                  })
-                }}
-              >
-                New user…
-              </button>
-              {isAddingNewUser ? (
-                <form className="account-switcher__new" onSubmit={handleNewUserSubmit}>
-                  <input
-                    ref={newUserInputRef}
-                    value={handleInput}
-                    onChange={(event) => {
-                      setHandleInput(event.target.value)
-                      if (newUserError) setNewUserError(null)
-                    }}
-                    placeholder="Enter a handle"
-                    aria-label="New user handle"
-                    autoComplete="off"
-                    inputMode="text"
-                  />
-                  {newUserError ? <p className="account-switcher__error">{newUserError}</p> : null}
-                  <div className="account-switcher__actions">
-                    <button
-                      type="button"
-                      className="account-switcher__cancel"
-                      onClick={() => {
-                        setIsAddingNewUser(false)
+                  onClick={() => {
+                    setIsAddingNewUser((prev) => {
+                      const next = !prev
+                      if (next) {
+                        setHandleInput('')
+                      } else {
                         setHandleInput(displayHandle ?? '')
-                        setNewUserError(null)
+                      }
+                      setNewUserError(null)
+                      return next
+                    })
+                  }}
+                >
+                  New user…
+                </button>
+                {isAddingNewUser ? (
+                  <form className="account-switcher__new" onSubmit={handleNewUserSubmit}>
+                    <input
+                      ref={newUserInputRef}
+                      value={handleInput}
+                      onChange={(event) => {
+                        setHandleInput(event.target.value)
+                        if (newUserError) setNewUserError(null)
                       }}
-                    >
-                      Cancel
-                    </button>
-                    <button type="submit" className="account-switcher__confirm">
-                      Open
-                    </button>
-                  </div>
-                </form>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-        <nav className="home-tabs">
-          <button
-            type="button"
-            className={`home-tabs__button${activeTab === 'chat' ? ' home-tabs__button--active' : ''}`}
-            onClick={() => setActiveTab('chat')}
-          >
-            Chat
-          </button>
-          <button
-            type="button"
-            className={`home-tabs__button${activeTab === 'history' ? ' home-tabs__button--active' : ''}`}
-            onClick={() => setActiveTab('history')}
-          >
-            History
-          </button>
-          <button
-            type="button"
-            className={`home-tabs__button${activeTab === 'settings' ? ' home-tabs__button--active' : ''}`}
-            onClick={() => setActiveTab('settings')}
-          >
-            Settings
-          </button>
-        </nav>
-      </header>
+                      placeholder="Enter a handle"
+                      aria-label="New user handle"
+                      autoComplete="off"
+                      inputMode="text"
+                    />
+                    {newUserError ? <p className="account-switcher__error">{newUserError}</p> : null}
+                    <div className="account-switcher__actions">
+                      <button
+                        type="button"
+                        className="account-switcher__cancel"
+                        onClick={() => {
+                          setIsAddingNewUser(false)
+                          setHandleInput(displayHandle ?? '')
+                          setNewUserError(null)
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button type="submit" className="account-switcher__confirm">
+                        Open
+                      </button>
+                    </div>
+                  </form>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
 
-      <div className="tab-content">
-        {activeTab === 'chat' && (
-          <ChatTab
-            normalizedHandle={normalizedHandle}
-            diagnosticsHref={diagnosticsHref}
-          />
-        )}
-        {activeTab === 'history' && (
-          <HistoryTab handle={normalizedHandle} currentSessionId={sessionId} />
-        )}
-        {activeTab === 'settings' && (
-          <SettingsTab handle={normalizedHandle} />
-        )}
+          <nav className="home-nav" aria-label="Sections">
+            <button
+              type="button"
+              className={`home-nav__button${activeTab === 'chat' ? ' home-nav__button--active' : ''}`}
+              onClick={() => setActiveTab('chat')}
+              aria-current={activeTab === 'chat' ? 'page' : undefined}
+            >
+              Interview
+            </button>
+            <button
+              type="button"
+              className={`home-nav__button${activeTab === 'history' ? ' home-nav__button--active' : ''}`}
+              onClick={() => setActiveTab('history')}
+              aria-current={activeTab === 'history' ? 'page' : undefined}
+            >
+              History
+            </button>
+            <button
+              type="button"
+              className={`home-nav__button${activeTab === 'settings' ? ' home-nav__button--active' : ''}`}
+              onClick={() => setActiveTab('settings')}
+              aria-current={activeTab === 'settings' ? 'page' : undefined}
+            >
+              Settings
+            </button>
+          </nav>
+        </aside>
+
+        <section className="home-content">
+          <div className="tab-content">
+            {activeTab === 'chat' && (
+              <ChatTab normalizedHandle={normalizedHandle} diagnosticsHref={diagnosticsHref} />
+            )}
+            {activeTab === 'history' && (
+              <HistoryTab handle={normalizedHandle} currentSessionId={sessionId} />
+            )}
+            {activeTab === 'settings' && <SettingsTab handle={normalizedHandle} />}
+          </div>
+
+          <div className="panel-card service-status-footer">
+            <ServiceStatusGrid diagnosticsHref={diagnosticsHref} />
+          </div>
+        </section>
       </div>
-
-      {/* Service status lights — always visible regardless of active tab */}
-      <div className="panel-card service-status-footer">
-        <ServiceStatusGrid diagnosticsHref={diagnosticsHref} />
-      </div>
-
     </main>
   )
 }

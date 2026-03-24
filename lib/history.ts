@@ -1,4 +1,4 @@
-import { getBlobEnvironment, listBlobs } from './blob'
+import { deleteBlobsByPrefix, getBlobEnvironment, listBlobs } from './blob'
 import { normalizeHandle } from './user-scope'
 
 type RawTurnBlob = { url: string; downloadUrl?: string; uploadedAt: string; name: string }
@@ -279,5 +279,16 @@ export async function fetchStoredSession(id: string): Promise<StoredSession | un
     return await enrich(entry)
   } catch {
     return undefined
+  }
+}
+
+export async function deleteStoredSessionArtifacts(id: string): Promise<number> {
+  ensureStorageConfigured()
+  const prefix = `sessions/${id}/`
+  try {
+    const deleted = await deleteBlobsByPrefix(prefix)
+    return deleted
+  } catch {
+    return 0
   }
 }

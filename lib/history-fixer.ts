@@ -1,9 +1,12 @@
 import { normalizeHandle } from '@/lib/user-scope'
-import { listSessions, mergeSessionArtifacts } from '@/lib/data'
-import { fetchStoredSessions, StoredSession } from '@/lib/history'
+import { deleteSession, listSessions, mergeSessionArtifacts } from '@/lib/data'
+import { deleteStoredSessionArtifacts, fetchStoredSessions, StoredSession } from '@/lib/history'
 import { clearDigest, updateDigestAfterSession } from '@/lib/conversation-digest'
 import { SummarizableTurn, generateSessionTitle } from '@/lib/session-title'
 import { formatSessionTitleFallback } from '@/lib/fallback-texts'
+
+const CLEANUP_MIN_AGE_MINUTES = 10
+const CLEANUP_AGE_MS = CLEANUP_MIN_AGE_MINUTES * 60 * 1000
 
 export type HistoryFixReport = {
   ok: boolean
@@ -11,6 +14,8 @@ export type HistoryFixReport = {
   processedSessions: number
   digestEntries: number
   skippedSessions: number
+  deletedSupabaseSessions: string[]
+  deletedStorageSessions: string[]
   titlesUpdated: number
   storageSessions: number
   supabaseSessions: number
@@ -26,6 +31,8 @@ type CombinedSession = {
   totalTurns: number
   durationMs: number
   status: string
+  origin: 'supabase' | 'storage'
+  handle: string | null
   title?: string | null
   turns: SummarizableTurn[]
 }
@@ -64,6 +71,8 @@ function buildCombinedSessions(
       totalTurns: session.total_turns,
       durationMs: session.duration_ms ?? 0,
       status: session.status,
+      origin: 'supabase',
+      handle: session.user_handle ?? null,
       title: session.title,
       turns,
     })
@@ -93,6 +102,8 @@ function buildCombinedSessions(
       totalTurns,
       durationMs,
       status: 'completed',
+      origin: 'storage',
+      handle: stored.userHandle ?? null,
       title: turns.length
         ? generateSessionTitle(turns, { fallback: formatSessionTitleFallback(createdAt) })
         : undefined,
@@ -133,6 +144,8 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
   let digestEntries = 0
   let skippedSessions = 0
   let titlesUpdated = 0
+  const deletedSupabaseSessions: string[] = []
+  const deletedStorageSessions: string[] = []
 
   for (const session of sorted) {
     const digestTurns = session.turns
@@ -142,6 +155,30 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
         return { role: turn.role, text }
       })
       .filter((turn): turn is { role: 'user' | 'assistant'; text: string } => Boolean(turn))
+
+    const createdAtTime = new Date(session.createdAt).getTime()
+    const isOld =
+      Number.isFinite(createdAtTime) && !Number.isNaN(createdAtTime)
+        ? createdAtTime < Date.now() - CLEANUP_AGE_MS
+        : true
+    const shouldDeleteEmpty = !digestTurns.length && session.status !== 'in_progress' && isOld
+
+    if (shouldDeleteEmpty) {
+      if (session.origin === 'supabase') {
+        await deleteSession(session.id).catch((err) => {
+          notes.push(`Failed to delete session ${session.id}: ${err instanceof Error ? err.message : 'unknown error'}`)
+        })
+        deletedSupabaseSessions.push(session.id)
+      } else {
+        const deleted = await deleteStoredSessionArtifacts(session.id)
+        if (deleted > 0) {
+          deletedStorageSessions.push(session.id)
+        } else {
+          notes.push(`Stored cleanup skipped for ${session.id}; no blobs deleted.`)
+        }
+      }
+      continue
+    }
 
     if (!digestTurns.length) {
       skippedSessions += 1
@@ -178,9 +215,11 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
   return {
     ok: true,
     handle: normalizedHandle ?? null,
-    processedSessions: sorted.length,
+    processedSessions: sorted.length - deletedSupabaseSessions.length - deletedStorageSessions.length,
     digestEntries,
     skippedSessions,
+    deletedSupabaseSessions,
+    deletedStorageSessions,
     titlesUpdated,
     storageSessions: storedSessions.length,
     supabaseSessions: supabaseSessions.length,
