@@ -33,11 +33,13 @@ type CombinedSession = {
 function buildTurnsFromStored(session: StoredSession): SummarizableTurn[] {
   const turns: SummarizableTurn[] = []
   for (const turn of session.turns) {
-    if (turn.transcript && turn.transcript.trim().length) {
-      turns.push({ role: 'user', text: turn.transcript })
+    const transcript = typeof turn.transcript === 'string' ? turn.transcript.trim() : ''
+    if (transcript) {
+      turns.push({ role: 'user', text: transcript })
     }
-    if (turn.assistantReply && turn.assistantReply.trim().length) {
-      turns.push({ role: 'assistant', text: turn.assistantReply })
+    const assistantReply = typeof turn.assistantReply === 'string' ? turn.assistantReply.trim() : ''
+    if (assistantReply) {
+      turns.push({ role: 'assistant', text: assistantReply })
     }
   }
   return turns
@@ -50,9 +52,12 @@ function buildCombinedSessions(
   const combined = new Map<string, CombinedSession>()
 
   for (const session of supabaseSessions) {
-    const turns: SummarizableTurn[] = (session.turns || [])
-      .filter((t) => t.text && t.text.trim().length)
-      .map((t) => ({ role: t.role as 'user' | 'assistant', text: t.text! }))
+    const turns: SummarizableTurn[] = []
+    for (const rawTurn of session.turns || []) {
+      const text = typeof rawTurn.text === 'string' ? rawTurn.text.trim() : ''
+      if (!text) continue
+      turns.push({ role: rawTurn.role as 'user' | 'assistant', text })
+    }
     combined.set(session.id, {
       id: session.id,
       createdAt: session.created_at,
@@ -130,15 +135,23 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
   let titlesUpdated = 0
 
   for (const session of sorted) {
-    if (!session.turns.length) {
+    const digestTurns = session.turns
+      .map((turn) => {
+        const text = typeof turn.text === 'string' ? turn.text.trim() : ''
+        if (!text) return null
+        return { role: turn.role, text }
+      })
+      .filter((turn): turn is { role: 'user' | 'assistant'; text: string } => Boolean(turn))
+
+    if (!digestTurns.length) {
       skippedSessions += 1
       continue
     }
 
     try {
-      await updateDigestAfterSession(normalizedHandle ?? null, session.id, session.turns, {
+      await updateDigestAfterSession(normalizedHandle ?? null, session.id, digestTurns, {
         date: session.createdAt,
-        turnCount: session.totalTurns || session.turns.length,
+        turnCount: session.totalTurns || digestTurns.length,
         durationMs: session.durationMs,
       })
       digestEntries += 1
@@ -146,8 +159,8 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
       notes.push(`Digest update failed for ${session.id}: ${err instanceof Error ? err.message : 'unknown error'}`)
     }
 
-    if (!session.title && session.turns.length) {
-      const computedTitle = generateSessionTitle(session.turns, {
+    if (!session.title) {
+      const computedTitle = generateSessionTitle(digestTurns, {
         fallback: formatSessionTitleFallback(session.createdAt),
       })
       if (computedTitle) {
