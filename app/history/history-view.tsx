@@ -46,6 +46,8 @@ type FixerReport = {
   processedSessions: number
   digestEntries: number
   skippedSessions: number
+  deletedSupabaseSessions: string[]
+  deletedStorageSessions: string[]
   titlesUpdated: number
   storageSessions: number
   supabaseSessions: number
@@ -58,7 +60,7 @@ type FixerReport = {
 type MetricsSnapshot = {
   sessionCount: number
   fileCount: number
-  storageBytes: number
+  storageBytes: number | undefined
   audioFileCount: number
   transcriptFileCount: number
   manifestFileCount: number
@@ -77,8 +79,14 @@ type MetricsResponse = {
   blobCount: number
 }
 
+type DerivedMetrics = {
+  scoped: MetricsSnapshot
+  global: MetricsSnapshot
+}
+
 function formatBytes(bytes?: number | null) {
-  if (!bytes || bytes <= 0) return '0 B'
+  if (bytes === undefined || bytes === null) return '—'
+  if (bytes <= 0) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
   let value = bytes
   let unit = 0
@@ -88,6 +96,38 @@ function formatBytes(bytes?: number | null) {
   }
   const precision = value >= 10 || unit === 0 ? 0 : 1
   return `${value.toFixed(precision)} ${units[unit]}`
+}
+
+function deriveMetricsFromRows(rows: Row[]): DerivedMetrics {
+  const scoped: MetricsSnapshot = {
+    sessionCount: rows.length,
+    fileCount: 0,
+    storageBytes: undefined as unknown as number,
+    audioFileCount: 0,
+    transcriptFileCount: 0,
+    manifestFileCount: 0,
+    totalDurationMs: rows.reduce((sum, row) => sum + (row.duration_ms || 0), 0),
+    totalTurns: rows.reduce((sum, row) => sum + (row.total_turns || 0), 0),
+    lastSessionAt: rows.length ? rows[0].created_at : null,
+  }
+
+  for (const row of rows) {
+    if (row.artifacts?.session_audio) {
+      scoped.audioFileCount += 1
+      scoped.fileCount += 1
+    }
+    if (row.artifacts?.transcript_txt || row.artifacts?.transcript_json) {
+      scoped.transcriptFileCount += 1
+      scoped.fileCount += 1
+    }
+    if (row.artifacts?.session_manifest) {
+      scoped.manifestFileCount += 1
+      scoped.fileCount += 1
+    }
+  }
+
+  const global: MetricsSnapshot = { ...scoped }
+  return { scoped, global }
 }
 
 function formatTimestamp(value?: string | null) {
@@ -131,6 +171,11 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
   const [fixerReport, setFixerReport] = useState<FixerReport | null>(null)
   const [fixerError, setFixerError] = useState<string | null>(null)
   const maintenanceRanRef = useRef(false)
+  const derivedMetrics = useMemo(() => deriveMetricsFromRows(rows), [rows])
+  const scopedMetrics = metrics && metrics.scoped.sessionCount > 0 ? metrics.scoped : derivedMetrics.scoped
+  const globalMetrics = metrics && metrics.global.sessionCount > 0 ? metrics.global : derivedMetrics.global
+  const usingDerivedScoped = !metrics || metrics.scoped.sessionCount === 0
+  const usingDerivedGlobal = !metrics || metrics.global.sessionCount === 0
 
   const resolveHandle = useCallback(() => {
     if (normalizedPropHandle) return normalizedPropHandle
@@ -440,6 +485,14 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
               <span className="history-fixer-label">Skipped (no text)</span>
               <span className="history-fixer-value">{fixerReport.skippedSessions}</span>
             </div>
+            <div>
+              <span className="history-fixer-label">Deleted (DB)</span>
+              <span className="history-fixer-value">{fixerReport.deletedSupabaseSessions.length}</span>
+            </div>
+            <div>
+              <span className="history-fixer-label">Deleted (Blobs)</span>
+              <span className="history-fixer-value">{fixerReport.deletedStorageSessions.length}</span>
+            </div>
           </div>
         )}
         {fixerReport?.notes?.length ? (
@@ -600,82 +653,91 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
         <h2 className="page-heading">Database Metrics</h2>
         {metricsLoading ? (
           <p className="history-metrics-status">Gathering storage stats…</p>
-        ) : metrics ? (
+        ) : rows.length === 0 && usingDerivedScoped ? (
+          <p className="history-metrics-status">No sessions yet.</p>
+        ) : (
           <div className="history-metrics-grid">
             <div className="history-metrics-panel">
               <h3>{activeHandle ? `@${activeHandle}` : 'Unassigned handle'}</h3>
+              {usingDerivedScoped && rows.length > 0 && (
+                <p className="history-metrics-note">Derived from loaded sessions</p>
+              )}
               <ul className="history-metrics-list">
                 <li>
                   <span>Sessions</span>
-                  <strong>{metrics.scoped.sessionCount}</strong>
+                  <strong>{scopedMetrics.sessionCount}</strong>
                 </li>
                 <li>
                   <span>Files stored</span>
-                  <strong>{metrics.scoped.fileCount}</strong>
+                  <strong>{scopedMetrics.fileCount}</strong>
                 </li>
                 <li>
                   <span>Storage used</span>
-                  <strong>{formatBytes(metrics.scoped.storageBytes)}</strong>
+                  <strong>{formatBytes(scopedMetrics.storageBytes)}</strong>
                 </li>
                 <li>
                   <span>Audio clips</span>
-                  <strong>{metrics.scoped.audioFileCount}</strong>
+                  <strong>{scopedMetrics.audioFileCount}</strong>
                 </li>
                 <li>
                   <span>Transcripts</span>
-                  <strong>{metrics.scoped.transcriptFileCount}</strong>
+                  <strong>{scopedMetrics.transcriptFileCount}</strong>
                 </li>
                 <li>
                   <span>Total turns</span>
-                  <strong>{metrics.scoped.totalTurns ?? 0}</strong>
+                  <strong>{scopedMetrics.totalTurns ?? 0}</strong>
                 </li>
                 <li>
                   <span>Talk time</span>
-                  <strong>{formatDuration(metrics.scoped.totalDurationMs || 0) || '—'}</strong>
+                  <strong>{formatDuration(scopedMetrics.totalDurationMs || 0) || '—'}</strong>
                 </li>
                 <li>
                   <span>Last session</span>
-                  <strong>{formatTimestamp(metrics.scoped.lastSessionAt)}</strong>
+                  <strong>{formatTimestamp(scopedMetrics.lastSessionAt)}</strong>
                 </li>
               </ul>
             </div>
             <div className="history-metrics-panel">
               <h3>Whole app</h3>
+              {usingDerivedGlobal && rows.length > 0 && (
+                <p className="history-metrics-note">Derived from current view</p>
+              )}
               <ul className="history-metrics-list">
                 <li>
                   <span>Sessions indexed</span>
-                  <strong>{metrics.global.sessionCount}</strong>
+                  <strong>{globalMetrics.sessionCount}</strong>
                 </li>
                 <li>
                   <span>Files saved</span>
-                  <strong>{metrics.global.fileCount}</strong>
+                  <strong>{globalMetrics.fileCount}</strong>
                 </li>
                 <li>
                   <span>Total storage</span>
-                  <strong>{formatBytes(metrics.global.storageBytes)}</strong>
+                  <strong>{formatBytes(globalMetrics.storageBytes)}</strong>
                 </li>
                 <li>
                   <span>Audio files</span>
-                  <strong>{metrics.global.audioFileCount}</strong>
+                  <strong>{globalMetrics.audioFileCount}</strong>
                 </li>
                 <li>
                   <span>Transcripts</span>
-                  <strong>{metrics.global.transcriptFileCount}</strong>
+                  <strong>{globalMetrics.transcriptFileCount}</strong>
                 </li>
                 <li>
                   <span>Manifests</span>
-                  <strong>{metrics.global.manifestFileCount}</strong>
+                  <strong>{globalMetrics.manifestFileCount}</strong>
                 </li>
               </ul>
             </div>
           </div>
-        ) : (
-          <p className="history-metrics-error">{metricsError || 'Metrics unavailable.'}</p>
         )}
         {metrics?.scopedLimitHit && (
           <p className="history-metrics-note">
             Showing the latest 500 sessions for this handle. Run the fixer to refresh older data.
           </p>
+        )}
+        {metricsError && (
+          <p className="history-metrics-error">{metricsError}</p>
         )}
       </div>
     </main>

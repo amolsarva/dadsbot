@@ -106,9 +106,10 @@ export async function GET(request: Request) {
     }
   })
 
-  const { items: stored } = await fetchStoredSessions({ limit: 50, handle })
+  const rowMap = new Map(rows.map((row) => [row.id, row]))
+
+  const { items: stored } = await fetchStoredSessions({ limit: 200, handle })
   for (const session of stored) {
-    if (rows.some(r => r.id === session.sessionId)) continue
     const summarizableTurns: SummarizableTurn[] = (session.turns || []).flatMap((turn) =>
       [
         { role: 'user' as const, text: turn.transcript },
@@ -123,6 +124,43 @@ export async function GET(request: Request) {
       (storedDigestEntry?.summary ? storedDigestEntry.summary.split('.')[0].trim() + '.' : null) ||
       formatSessionTitleFallback(storedDate)
     const storedSummary = storedDigestEntry?.summary || buildSummary(summarizableTurns)
+    const existing = rowMap.get(session.sessionId)
+    if (existing) {
+      if (!existing.summary && storedSummary) existing.summary = storedSummary
+      if ((!existing.total_turns || existing.total_turns === 0) && session.totalTurns) {
+        existing.total_turns = session.totalTurns
+      }
+      if ((!existing.duration_ms || existing.duration_ms === 0) && session.totalDurationMs) {
+        existing.duration_ms = session.totalDurationMs
+      }
+      if (!existing.key_facts?.length && storedDigestEntry?.keyFacts?.length) {
+        existing.key_facts = storedDigestEntry.keyFacts
+      }
+      if (!existing.topic_tags?.length) {
+        existing.topic_tags = detectTags(summarizableTurns)
+      }
+      existing.artifacts = {
+        transcript_txt: existing.artifacts?.transcript_txt || session.artifacts?.transcript_txt || null,
+        transcript_json: existing.artifacts?.transcript_json || session.artifacts?.transcript_json || null,
+        session_manifest:
+          existing.artifacts?.session_manifest ||
+          session.artifacts?.session_manifest ||
+          session.artifacts?.manifest ||
+          session.manifestUrl ||
+          null,
+        session_audio: existing.artifacts?.session_audio || session.artifacts?.session_audio || null,
+      }
+      existing.manifestUrl =
+        existing.manifestUrl ||
+          session.artifacts?.session_manifest ||
+          session.artifacts?.manifest ||
+          session.manifestUrl ||
+          null
+
+      existing.sessionAudioUrl = existing.sessionAudioUrl || session.artifacts?.session_audio || null
+      existing.firstAudioUrl = existing.firstAudioUrl || session.turns.find(t => Boolean(t.audio))?.audio || null
+      continue
+    }
 
     rows.push({
       id: session.sessionId,

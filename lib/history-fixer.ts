@@ -1,6 +1,11 @@
 import { normalizeHandle } from '@/lib/user-scope'
 import { deleteSession, listSessions, mergeSessionArtifacts } from '@/lib/data'
-import { deleteStoredSessionArtifacts, fetchStoredSessions, StoredSession } from '@/lib/history'
+import {
+  deleteStoredSessionArtifacts,
+  fetchStoredSession,
+  fetchStoredSessions,
+  StoredSession,
+} from '@/lib/history'
 import { clearDigest, updateDigestAfterSession } from '@/lib/conversation-digest'
 import { SummarizableTurn, generateSessionTitle } from '@/lib/session-title'
 import { formatSessionTitleFallback } from '@/lib/fallback-texts'
@@ -148,13 +153,29 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
   const deletedStorageSessions: string[] = []
 
   for (const session of sorted) {
-    const digestTurns = session.turns
+    let digestTurns = session.turns
       .map((turn) => {
         const text = typeof turn.text === 'string' ? turn.text.trim() : ''
         if (!text) return null
         return { role: turn.role, text }
       })
       .filter((turn): turn is { role: 'user' | 'assistant'; text: string } => Boolean(turn))
+
+    if (!digestTurns.length) {
+      try {
+        const storedFallback = await fetchStoredSession(session.id)
+        if (storedFallback) {
+          const fallbackTurns = buildTurnsFromStored(storedFallback)
+          if (fallbackTurns.length) {
+            digestTurns = fallbackTurns
+            if (!session.totalTurns) session.totalTurns = storedFallback.totalTurns
+            if (!session.durationMs) session.durationMs = storedFallback.totalDurationMs
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
 
     const createdAtTime = new Date(session.createdAt).getTime()
     const isOld =
@@ -168,6 +189,7 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
         await deleteSession(session.id).catch((err) => {
           notes.push(`Failed to delete session ${session.id}: ${err instanceof Error ? err.message : 'unknown error'}`)
         })
+        await deleteStoredSessionArtifacts(session.id).catch(() => undefined)
         deletedSupabaseSessions.push(session.id)
       } else {
         const deleted = await deleteStoredSessionArtifacts(session.id)
