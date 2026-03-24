@@ -10,7 +10,7 @@ import { clearDigest, updateDigestAfterSession } from '@/lib/conversation-digest
 import { SummarizableTurn, generateSessionTitle } from '@/lib/session-title'
 import { formatSessionTitleFallback } from '@/lib/fallback-texts'
 
-const CLEANUP_MIN_AGE_MINUTES = 10
+const CLEANUP_MIN_AGE_MINUTES = 60 * 24
 const CLEANUP_AGE_MS = CLEANUP_MIN_AGE_MINUTES * 60 * 1000
 
 export type HistoryFixReport = {
@@ -182,9 +182,13 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
       Number.isFinite(createdAtTime) && !Number.isNaN(createdAtTime)
         ? createdAtTime < Date.now() - CLEANUP_AGE_MS
         : true
-    const shouldDeleteEmpty = !digestTurns.length && session.status !== 'in_progress' && isOld
+    const staleInProgress = session.status === 'in_progress' && isOld
+    const shouldDeleteEmpty =
+      !digestTurns.length && (session.status !== 'in_progress' || staleInProgress)
+    const shouldDeleteStaleInProgress =
+      staleInProgress && (session.totalTurns <= 1 || digestTurns.length <= 1)
 
-    if (shouldDeleteEmpty) {
+    if (shouldDeleteEmpty || shouldDeleteStaleInProgress) {
       if (session.origin === 'supabase') {
         await deleteSession(session.id).catch((err) => {
           notes.push(`Failed to delete session ${session.id}: ${err instanceof Error ? err.message : 'unknown error'}`)

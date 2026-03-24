@@ -77,7 +77,7 @@ export async function GET(request: Request) {
 
     // Prefer: AI digest summary > built from turns > empty
     const turnSummary = buildSummary(summarizable)
-    const summary = digestEntry?.summary || turnSummary || ''
+    const summary = digestEntry?.summary || turnSummary || 'Brief or empty session.'
 
     // Merge topic tags from turns + digest
     const turnTags = detectTags(summarizable)
@@ -123,7 +123,7 @@ export async function GET(request: Request) {
       generateSessionTitle(summarizableTurns, { fallback: undefined }) ||
       (storedDigestEntry?.summary ? storedDigestEntry.summary.split('.')[0].trim() + '.' : null) ||
       formatSessionTitleFallback(storedDate)
-    const storedSummary = storedDigestEntry?.summary || buildSummary(summarizableTurns)
+    const storedSummary = storedDigestEntry?.summary || buildSummary(summarizableTurns) || 'Brief or empty session.'
     const existing = rowMap.get(session.sessionId)
     if (existing) {
       if (!existing.summary && storedSummary) existing.summary = storedSummary
