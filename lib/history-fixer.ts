@@ -19,6 +19,8 @@ export type HistoryFixReport = {
   processedSessions: number
   digestEntries: number
   skippedSessions: number
+  statusRepairs: number
+  metadataRepairs: number
   deletedSupabaseSessions: string[]
   deletedStorageSessions: string[]
   titlesUpdated: number
@@ -40,6 +42,41 @@ type CombinedSession = {
   handle: string | null
   title?: string | null
   turns: SummarizableTurn[]
+  stored?: StoredSession
+}
+
+function hasMeaningfulUserTurn(turns: SummarizableTurn[]): boolean {
+  return turns.some((turn) => turn.role === 'user' && typeof turn.text === 'string' && turn.text.trim().length > 0)
+}
+
+function shouldAdoptStoredTurns(existing: SummarizableTurn[], incoming: SummarizableTurn[]): boolean {
+  if (!incoming.length) return false
+  if (!existing.length) return true
+  const existingHasUser = hasMeaningfulUserTurn(existing)
+  const incomingHasUser = hasMeaningfulUserTurn(incoming)
+  if (!existingHasUser && incomingHasUser) return true
+  if (!existingHasUser && !incomingHasUser) {
+    return incoming.length > existing.length
+  }
+  return false
+}
+
+function buildArtifactPatchFromStored(stored?: StoredSession | null): Record<string, string> {
+  if (!stored) return {}
+  const artifacts = stored.artifacts || {}
+  const entries: Array<[string, string | null | undefined]> = [
+    ['session_manifest', artifacts.session_manifest || artifacts.manifest || stored.manifestUrl],
+    ['session_audio', artifacts.session_audio],
+    ['transcript_txt', artifacts.transcript_txt],
+    ['transcript_json', artifacts.transcript_json],
+  ]
+  const patch: Record<string, string> = {}
+  for (const [key, value] of entries) {
+    if (typeof value === 'string' && value.trim().length > 0) {
+      patch[key] = value.trim()
+    }
+  }
+  return patch
 }
 
 function buildTurnsFromStored(session: StoredSession): SummarizableTurn[] {
@@ -80,6 +117,7 @@ function buildCombinedSessions(
       handle: session.user_handle ?? null,
       title: session.title,
       turns,
+      stored: undefined,
     })
   }
 
@@ -90,7 +128,8 @@ function buildCombinedSessions(
     const durationMs = stored.totalDurationMs || 0
     const existing = combined.get(stored.sessionId)
     if (existing) {
-      if (!existing.turns.length && turns.length) {
+      existing.stored = stored
+      if (shouldAdoptStoredTurns(existing.turns, turns)) {
         existing.turns = turns
       }
       if (!existing.title && turns.length) {
@@ -98,6 +137,12 @@ function buildCombinedSessions(
           fallback: formatSessionTitleFallback(createdAt),
         })
         existing.title = computedTitle
+      }
+      if (totalTurns && (!existing.totalTurns || existing.totalTurns < totalTurns)) {
+        existing.totalTurns = totalTurns
+      }
+      if (durationMs && (!existing.durationMs || existing.durationMs < durationMs)) {
+        existing.durationMs = durationMs
       }
       continue
     }
@@ -113,6 +158,7 @@ function buildCombinedSessions(
         ? generateSessionTitle(turns, { fallback: formatSessionTitleFallback(createdAt) })
         : undefined,
       turns,
+      stored,
     })
   }
 
@@ -149,6 +195,8 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
   let digestEntries = 0
   let skippedSessions = 0
   let titlesUpdated = 0
+  let statusRepairs = 0
+  let metadataRepairs = 0
   const deletedSupabaseSessions: string[] = []
   const deletedStorageSessions: string[] = []
 
@@ -159,21 +207,35 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
         if (!text) return null
         return { role: turn.role, text }
       })
-      .filter((turn): turn is { role: 'user' | 'assistant'; text: string } => Boolean(turn))
+      .filter((turn): turn is SummarizableTurn => Boolean(turn))
 
-    if (!digestTurns.length) {
-      try {
-        const storedFallback = await fetchStoredSession(session.id)
-        if (storedFallback) {
-          const fallbackTurns = buildTurnsFromStored(storedFallback)
-          if (fallbackTurns.length) {
-            digestTurns = fallbackTurns
-            if (!session.totalTurns) session.totalTurns = storedFallback.totalTurns
-            if (!session.durationMs) session.durationMs = storedFallback.totalDurationMs
+    let hasUserTurns = hasMeaningfulUserTurn(digestTurns)
+    if (!digestTurns.length || !hasUserTurns) {
+      let storedFallback = session.stored
+      if (!storedFallback) {
+        try {
+          storedFallback = await fetchStoredSession(session.id)
+          if (storedFallback) {
+            session.stored = storedFallback
+          }
+        } catch {
+          storedFallback = null
+        }
+      }
+      if (storedFallback) {
+        const fallbackTurns = buildTurnsFromStored(storedFallback)
+        if (fallbackTurns.length) {
+          digestTurns = fallbackTurns
+          hasUserTurns = hasMeaningfulUserTurn(fallbackTurns)
+          const storedTurns = storedFallback.totalTurns
+          const storedDuration = storedFallback.totalDurationMs
+          if (storedTurns && (!session.totalTurns || storedTurns > session.totalTurns)) {
+            session.totalTurns = storedTurns
+          }
+          if (storedDuration && (!session.durationMs || storedDuration > session.durationMs)) {
+            session.durationMs = storedDuration
           }
         }
-      } catch {
-        // ignore
       }
     }
 
@@ -184,9 +246,9 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
         : true
     const staleInProgress = session.status === 'in_progress' && isOld
     const shouldDeleteEmpty =
-      !digestTurns.length && (session.status !== 'in_progress' || staleInProgress)
+      !hasUserTurns && (session.status !== 'in_progress' || staleInProgress)
     const shouldDeleteStaleInProgress =
-      staleInProgress && (session.totalTurns <= 1 || digestTurns.length <= 1)
+      staleInProgress && (session.totalTurns <= 1 || !hasUserTurns)
 
     if (shouldDeleteEmpty || shouldDeleteStaleInProgress) {
       if (session.origin === 'supabase') {
@@ -206,7 +268,7 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
       continue
     }
 
-    if (!digestTurns.length) {
+    if (!hasUserTurns) {
       skippedSessions += 1
       continue
     }
@@ -233,6 +295,48 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
         titlesUpdated += 1
       }
     }
+
+    if (session.origin === 'supabase' && session.stored) {
+      const patch: {
+        status?: string
+        totalTurns?: number
+        durationMs?: number
+        artifacts?: Record<string, string>
+      } = {}
+      let patchedStatus = false
+      let patchedMetadata = false
+      const stored = session.stored
+      if (session.status === 'in_progress' && hasUserTurns) {
+        patch.status = 'completed'
+        patchedStatus = true
+      }
+      if (stored.totalTurns && stored.totalTurns > 0 && stored.totalTurns !== session.totalTurns) {
+        patch.totalTurns = stored.totalTurns
+        patchedMetadata = true
+      }
+      if (
+        stored.totalDurationMs &&
+        stored.totalDurationMs > 0 &&
+        (!session.durationMs || stored.totalDurationMs !== session.durationMs)
+      ) {
+        patch.durationMs = stored.totalDurationMs
+        patchedMetadata = true
+      }
+      const artifactPatch = buildArtifactPatchFromStored(stored)
+      if (Object.keys(artifactPatch).length > 0) {
+        patch.artifacts = artifactPatch
+        patchedMetadata = true
+      }
+      if (patchedStatus || patchedMetadata) {
+        try {
+          await mergeSessionArtifacts(session.id, patch)
+          if (patchedStatus) statusRepairs += 1
+          if (patchedMetadata) metadataRepairs += 1
+        } catch (err) {
+          notes.push(`Metadata update failed for ${session.id}: ${err instanceof Error ? err.message : 'unknown error'}`)
+        }
+      }
+    }
   }
 
   const completedAt = new Date().toISOString()
@@ -244,6 +348,8 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
     processedSessions: sorted.length - deletedSupabaseSessions.length - deletedStorageSessions.length,
     digestEntries,
     skippedSessions,
+    statusRepairs,
+    metadataRepairs,
     deletedSupabaseSessions,
     deletedStorageSessions,
     titlesUpdated,

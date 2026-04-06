@@ -46,6 +46,8 @@ type FixerReport = {
   processedSessions: number
   digestEntries: number
   skippedSessions: number
+  statusRepairs: number
+  metadataRepairs: number
   deletedSupabaseSessions: string[]
   deletedStorageSessions: string[]
   titlesUpdated: number
@@ -480,6 +482,14 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
             <div>
               <span className="history-fixer-label">Titles updated</span>
               <span className="history-fixer-value">{fixerReport.titlesUpdated}</span>
+            </div>
+            <div>
+              <span className="history-fixer-label">Status repaired</span>
+              <span className="history-fixer-value">{fixerReport.statusRepairs}</span>
+            </div>
+            <div>
+              <span className="history-fixer-label">Metadata fixes</span>
+              <span className="history-fixer-value">{fixerReport.metadataRepairs}</span>
             </div>
             <div>
               <span className="history-fixer-label">Skipped (no text)</span>
