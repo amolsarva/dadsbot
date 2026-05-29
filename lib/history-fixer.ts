@@ -79,8 +79,8 @@ function buildArtifactPatchFromStored(stored?: StoredSession | null): Record<str
   return patch
 }
 
-function buildTurnsFromStored(session: StoredSession): SummarizableTurn[] {
-  const turns: SummarizableTurn[] = []
+function buildTurnsFromStored(session: StoredSession): Array<{ role: 'user' | 'assistant'; text: string }> {
+  const turns: Array<{ role: 'user' | 'assistant'; text: string }> = []
   for (const turn of session.turns) {
     const transcript = typeof turn.transcript === 'string' ? turn.transcript.trim() : ''
     if (transcript) {
@@ -201,13 +201,13 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
   const deletedStorageSessions: string[] = []
 
   for (const session of sorted) {
-    let digestTurns = session.turns
+    let digestTurns: Array<{ role: 'user' | 'assistant'; text: string }> = session.turns
       .map((turn) => {
         const text = typeof turn.text === 'string' ? turn.text.trim() : ''
         if (!text) return null
         return { role: turn.role, text }
       })
-      .filter((turn): turn is SummarizableTurn => Boolean(turn))
+      .filter((turn): turn is { role: 'user' | 'assistant'; text: string } => turn !== null)
 
     let hasUserTurns = hasMeaningfulUserTurn(digestTurns)
     if (!digestTurns.length || !hasUserTurns) {
@@ -219,7 +219,7 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
             session.stored = storedFallback
           }
         } catch {
-          storedFallback = null
+          storedFallback = undefined
         }
       }
       if (storedFallback) {
@@ -298,7 +298,7 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
 
     if (session.origin === 'supabase' && session.stored) {
       const patch: {
-        status?: string
+        status?: 'error' | 'in_progress' | 'completed' | 'emailed'
         totalTurns?: number
         durationMs?: number
         artifacts?: Record<string, string>
