@@ -1,5 +1,5 @@
 "use client"
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ACTIVE_USER_HANDLE_STORAGE_KEY,
   normalizeHandle,

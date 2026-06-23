@@ -2175,12 +2175,9 @@ export function Home({ userHandle }: { userHandle?: string }) {
     await finalizeNow()
   }, [finalizeNow, pushLog, requestManualStop])
 
-  useEffect(() => {
-    if (!sessionId) return
-    if (hasStarted) return
-    if (startupError || fatalError) return
-    startSession().catch(() => {})
-  }, [fatalError, hasStarted, sessionId, startSession, startupError])
+  // Note: we intentionally do NOT auto-start the interview. The session only
+  // begins when the user taps the hero button (see handleHeroPress). A real
+  // user gesture is required for microphone access and audio playback.
 
   useEffect(() => {
     if (machineState === 'readyToContinue' && hasStarted) {
@@ -2220,12 +2217,25 @@ export function Home({ userHandle }: { userHandle?: string }) {
 
   const handleHeroPress = useCallback(() => {
     if (startupError || fatalError) return
+    if (!hasStarted && machineState === 'idle') {
+      // Explicit user gesture is required before we can request microphone
+      // access and play the intro audio — browsers block autoplay otherwise.
+      startSession().catch(() => {})
+      return
+    }
     if (machineState === 'recording') {
       requestManualStop()
     } else if (machineState === 'playing') {
       recorderRef.current?.skipPlayback()
     }
-  }, [fatalError, machineState, requestManualStop, startupError])
+  }, [fatalError, hasStarted, machineState, requestManualStop, startSession, startupError])
+
+  const handleNameYourself = useCallback(() => {
+    setIsAccountMenuOpen(true)
+    setIsAddingNewUser(true)
+    setNewUserError(null)
+    setHandleInput('')
+  }, [])
 
   const visual = STATE_VISUALS[machineState] ?? STATE_VISUALS.idle
   const _isInitialState = !hasStarted && machineState === 'idle'
@@ -2263,7 +2273,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
       return 'Session halted—review Diagnostics for details.'
     }
     if (!hasStarted) {
-      return 'Let me welcome you first—I’ll begin automatically.'
+      return 'Tap the circle when you’re ready—I’ll welcome you and ask the first question.'
     }
     if (finishRequested) {
       return 'Wrapping up your session.'
@@ -2368,6 +2378,8 @@ export function Home({ userHandle }: { userHandle?: string }) {
       showSkipButton,
       statusHint,
       diagnosticsHref,
+      accountHandle: displayHandle,
+      onNameYourself: handleNameYourself,
     }
   }, [
     sessionId, machineState, turn, hasStarted, finishRequested, audioLevel,
@@ -2375,6 +2387,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
     handleHeroPress, requestFinish, requestManualStop, manualStopRequested,
     visual, heroAriaLabel, heroIcon, heroBadge, heroTitle, heroDescription,
     heroDisabled, statusMessage, showSkipButton, statusHint, diagnosticsHref,
+    displayHandle, handleNameYourself,
   ])
 
   return (
@@ -2422,7 +2435,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
             >
               <span className="account-switcher__label">Account</span>
               <span className="account-switcher__value">
-                {normalizedHandle ? `@${normalizedHandle}` : 'Default'}
+                {normalizedHandle ? `@${normalizedHandle}` : 'Guest'}
               </span>
               <span
                 className={`account-switcher__chevron${
@@ -2440,7 +2453,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
                     role="menuitem"
                     onClick={handleClearSelection}
                   >
-                    Default account
+                    Continue as guest
                   </button>
                 ) : null}
                 {availableHandles.map((handle) => (
