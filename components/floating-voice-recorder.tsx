@@ -45,6 +45,10 @@ interface FloatingVoiceRecorderProps {
   statusHint: string | null
   diagnosticsHref: string
 
+  // Onboarding / first-run
+  accountHandle: string | null
+  onNameYourself: () => void
+
   // Handlers
   onStartAgain: () => void
 }
@@ -76,13 +80,52 @@ export function FloatingVoiceRecorder({
   showSkipButton,
   statusHint,
   diagnosticsHref,
+  accountHandle,
+  onNameYourself,
   onStartAgain,
 }: FloatingVoiceRecorderProps) {
   const isSessionActive = hasStarted && (machineState !== 'idle' || finishRequested)
+  const showWelcome = !hasStarted && !startupError && !fatalError && !finishRequested
 
   return (
     <div className="floating-voice-recorder">
       <div className="floating-voice-recorder__container">
+        {showWelcome ? (
+          <div className="recorder-welcome">
+            <h2 className="recorder-welcome__title">
+              {accountHandle ? `Welcome back, @${accountHandle}` : 'Capture a memory, one question at a time'}
+            </h2>
+            <p className="recorder-welcome__lede">
+              DadsBot is a warm, voice-first biographer. Tap the circle below and it
+              will ask a question, then listen as you answer—no typing required.
+            </p>
+            <ol className="recorder-welcome__steps">
+              <li>
+                <span className="recorder-welcome__step-num">1</span>
+                Tap the circle to begin (we&apos;ll ask for the microphone once).
+              </li>
+              <li>
+                <span className="recorder-welcome__step-num">2</span>
+                Listen to the question, then just start talking.
+              </li>
+              <li>
+                <span className="recorder-welcome__step-num">3</span>
+                Tap when you&apos;re done, or say you&apos;re finished to save and email a recap.
+              </li>
+            </ol>
+            {!accountHandle ? (
+              <div className="recorder-welcome__guest">
+                <span>
+                  You&apos;re recording as a <strong>guest</strong>. Add a name so your
+                  stories are saved and remembered next time.
+                </span>
+                <button type="button" className="btn-secondary" onClick={onNameYourself}>
+                  Add your name
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         <div className="floating-voice-recorder__content">
           <button
             type="button"
