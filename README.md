@@ -34,6 +34,11 @@ DadsBot is a Next.js 14 app that captures long-form oral histories with warm, bi
 - **Email:** `DEFAULT_NOTIFY_EMAIL` must be a real inbox; validated on server bootstrap.
 - **Providers:** `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `SENDGRID_API_KEY` as applicable. No defaults are assumed. `GOOGLE_MODEL` must be set wherever Google calls are used.
 - **Platform context:** diagnostics log `VERCEL`, `VERCEL_ENV`, and `NODE_ENV` for traceability.
+- **Access gate (beta):** `AUTH_SECRET` (long random string, signs session cookies),
+  `BETA_ACCESS_CODE` (invite code shared with families), `BETA_OPERATOR_CODE` (a separate
+  code for operator-only surfaces like `/api/users`). See `middleware.ts` and `lib/auth.ts`.
+  Missing `AUTH_SECRET` fails closed — every gated route returns 401/redirects to `/login`
+  rather than allowing access.
 
 ## Supabase setup
 - **Bucket readiness:** service role must be allowed to list/create buckets and objects; `lib/blob.ts` will attempt bucket creation (`public: false`). Storage policies must allow service-role uploads/list/deletes.
