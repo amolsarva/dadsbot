@@ -10,6 +10,8 @@ import { clearDigest, updateDigestAfterSession } from '@/lib/conversation-digest
 import { SummarizableTurn, generateSessionTitle } from '@/lib/session-title'
 import { formatSessionTitleFallback } from '@/lib/fallback-texts'
 
+type NonEmptyTurn = { role: 'user' | 'assistant'; text: string }
+
 const CLEANUP_MIN_AGE_MINUTES = 60 * 24
 const CLEANUP_AGE_MS = CLEANUP_MIN_AGE_MINUTES * 60 * 1000
 
@@ -79,8 +81,8 @@ function buildArtifactPatchFromStored(stored?: StoredSession | null): Record<str
   return patch
 }
 
-function buildTurnsFromStored(session: StoredSession): SummarizableTurn[] {
-  const turns: SummarizableTurn[] = []
+function buildTurnsFromStored(session: StoredSession): NonEmptyTurn[] {
+  const turns: NonEmptyTurn[] = []
   for (const turn of session.turns) {
     const transcript = typeof turn.transcript === 'string' ? turn.transcript.trim() : ''
     if (transcript) {
@@ -207,7 +209,7 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
         if (!text) return null
         return { role: turn.role, text }
       })
-      .filter((turn): turn is SummarizableTurn => Boolean(turn))
+      .filter((turn): turn is NonEmptyTurn => Boolean(turn))
 
     let hasUserTurns = hasMeaningfulUserTurn(digestTurns)
     if (!digestTurns.length || !hasUserTurns) {
@@ -219,7 +221,7 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
             session.stored = storedFallback
           }
         } catch {
-          storedFallback = null
+          storedFallback = undefined
         }
       }
       if (storedFallback) {
@@ -298,7 +300,7 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
 
     if (session.origin === 'supabase' && session.stored) {
       const patch: {
-        status?: string
+        status?: 'in_progress' | 'completed' | 'emailed' | 'error'
         totalTurns?: number
         durationMs?: number
         artifacts?: Record<string, string>
