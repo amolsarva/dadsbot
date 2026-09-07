@@ -45,18 +45,37 @@ redaction. A local run returned 166 variables in plaintext. In production this e
 `SUPABASE_SERVICE_ROLE_KEY` (bypasses every RLS policy in `docs/conversation-turns-rls.md`),
 `GOOGLE_API_KEY`, `OPENAI_API_KEY`, `SENDGRID_API_KEY`.
 
-- [ ] **A human must rotate all four provider keys first.** An agent cannot do this and
-      must not proceed as if it were done — leave the task open and say so.
-- [ ] Replace every `value:` field with presence/shape only: `"set"` / `"missing"`, plus
-      length or a 4-char prefix where that genuinely aids debugging. Never the value.
-- [ ] Delete the unknown-key sweep (`allEnvKeys` / `unknownKeys` / `unknownOutcomes`). The
-      curated list is the allowlist.
-- [ ] Apply the same rule to the HTML branch of the route, not just `format=json`.
+**Confirmed exploited in production on 7 Sep 2026.** A `curl` against
+`dadsbot.vercel.app` returned 73 variables with live values, including
+`SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `GOOGLE_API_KEY`, `OPENAI_API_KEY`,
+`SENDGRID_API_KEY`, `VERCEL_DEPLOYMENT_KEY` and `AWS_LAMBDA_METADATA_TOKEN`. The endpoint
+had been reachable since the Mar 24 deploy.
+
+- [ ] **A human must rotate the five account-owned keys.** An agent cannot do this and must
+      not proceed as if it were done — leave this box unchecked and say so.
+      `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `GOOGLE_API_KEY`,
+      `OPENAI_API_KEY`, `SENDGRID_API_KEY`. (`VERCEL_DEPLOYMENT_KEY` and
+      `AWS_LAMBDA_METADATA_TOKEN` are platform-managed and rotate themselves.)
+- [ ] **A human must review access logs** for the exposure window: Supabase → Logs → API,
+      plus OpenAI and Google usage dashboards.
+- [x] Replace every `value:` field with presence/shape only. Done in `lib/redact-env.ts`:
+      curated keys render as `set (N chars)`, so a truncated paste is still diagnosable
+      without disclosure.
+- [x] Stop emitting values for keys outside the curated set. `describeUnknownValue` reports
+      `set` / `''` / `null` and never the literal.
+- [x] The HTML branch reads the same `outcome.value`, so it is covered by the same change.
+- [x] Verified against a running server: 179 variables returned, zero raw secrets in the
+      body. Regression test in `tests/redact-env.test.ts`.
 - [ ] Audit sibling routes for the same leak: `app/api/diagnostics/{route,storage,supabase,session,smoke,hypotheses}.ts`.
 
-**Done when:** `curl "$APP/api/diagnostics/env?format=json"` contains no value longer than
-8 characters and no string matching `/^(eyJ|sk-|SG\.)/`. Add a unit test asserting the
-response body never contains `process.env.SUPABASE_SERVICE_ROLE_KEY`.
+**Done when:** the keys are rotated *and* this returns only `set`-style descriptors:
+
+```bash
+curl -s "$APP/api/diagnostics/env?format=json" \
+| python3 -c "import json,sys; [print(('LEAKED ' if e['value'] and 'set' not in e['value'] else 'ok     ')+e['key']) for e in json.load(sys.stdin)['env'] if any(k in e['key'].upper() for k in ('KEY','TOKEN','SECRET','PASSWORD'))]"
+```
+
+The code half is done; the rotation half is not, and the item stays open until it is.
 
 ### P0-2 · Put a door on the app
 

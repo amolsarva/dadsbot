@@ -1,6 +1,8 @@
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+import { describeUnknownValue, describeValue } from '@/lib/redact-env'
+
 type Severity = 'ok' | 'warn' | 'error' | 'info'
 
 type ValidationOutcome = {
@@ -562,7 +564,7 @@ function runCheck(def: EnvCheck, env: NodeJS.ProcessEnv): CheckOutcome {
     key: def.key,
     label,
     description: def.description,
-    value: rawValue ?? null,
+    value: describeValue(def.key, rawValue),
     severity,
     message,
     strictFailure,
@@ -670,9 +672,9 @@ export async function GET(request: Request) {
     const unknownOutcomes: CheckOutcome[] = unknownKeys.map((key) => ({
       key,
       label: key,
-      value: env[key] ?? null,
+      value: describeUnknownValue(env[key]),
       severity: 'ok',
-      message: 'Not part of the curated diagnostics set.',
+      message: 'Present but not inspected; value withheld.',
       strictFailure: false,
     }))
 
