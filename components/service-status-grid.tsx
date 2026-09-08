@@ -10,6 +10,15 @@ type ServiceState = {
   status: ServiceStatus
 }
 
+// Status must not be conveyed by colour alone, so each state carries a glyph
+// and a text label for screen readers and colour-blind users.
+const STATUS_META: Record<ServiceStatus, { glyph: string; text: string }> = {
+  checking: { glyph: '…', text: 'checking' },
+  ok: { glyph: '✓', text: 'operational' },
+  warning: { glyph: '!', text: 'degraded' },
+  error: { glyph: '×', text: 'not working' },
+}
+
 const SERVICES: { id: string; label: string; endpoint: string }[] = [
   { id: 'health', label: 'System', endpoint: '/api/health' },
   { id: 'google', label: 'Gemini', endpoint: '/api/diagnostics/google' },
@@ -54,12 +63,18 @@ export function ServiceStatusGrid({ diagnosticsHref }: { diagnosticsHref: string
         <a className="service-grid__link" href={diagnosticsHref}>Details</a>
       </div>
       <div className="service-grid__items">
-        {services.map(s => (
-          <div key={s.id} className="service-grid__item">
-            <span className={`service-grid__dot service-grid__dot--${s.status}`} />
-            <span className="service-grid__label">{s.label}</span>
-          </div>
-        ))}
+        {services.map(s => {
+          const meta = STATUS_META[s.status]
+          return (
+            <div key={s.id} className="service-grid__item" title={`${s.label}: ${meta.text}`}>
+              <span className={`service-grid__dot service-grid__dot--${s.status}`} aria-hidden="true">
+                {meta.glyph}
+              </span>
+              <span className="service-grid__label">{s.label}</span>
+              <span className="sr-only">{meta.text}</span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

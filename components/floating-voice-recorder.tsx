@@ -2,6 +2,8 @@
 
 import type { CSSProperties } from 'react'
 
+import { SetupStatus } from '@/components/setup-status'
+
 interface FloatingVoiceRecorderProps {
   // Session state
   sessionId: string | null
@@ -56,7 +58,7 @@ interface FloatingVoiceRecorderProps {
 export function FloatingVoiceRecorder({
   sessionId: _sessionId,
   machineState,
-  turn: _turn,
+  turn,
   hasStarted,
   finishRequested,
   audioLevel,
@@ -86,6 +88,24 @@ export function FloatingVoiceRecorder({
 }: FloatingVoiceRecorderProps) {
   const isSessionActive = hasStarted && (machineState !== 'idle' || finishRequested)
   const showWelcome = !hasStarted && !startupError && !fatalError && !finishRequested
+
+  const activeAlert: {
+    kind: 'fatal' | 'startup' | 'provider'
+    title: string
+    message: string
+    details: string[]
+  } | null = fatalError
+    ? { kind: 'fatal', title: '🛑 Session halted', message: fatalError, details: fatalDetails }
+    : startupError
+      ? { kind: 'startup', title: '🚫 Could not start', message: startupError, details: startupDetails }
+      : providerError
+        ? {
+            kind: 'provider',
+            title: `⚠️ Trouble reaching Google${providerError.status ? ` · HTTP ${providerError.status}` : ''}`,
+            message: providerError.message,
+            details: [],
+          }
+        : null
 
   return (
     <div className="floating-voice-recorder">
@@ -163,6 +183,12 @@ export function FloatingVoiceRecorder({
 
           {isSessionActive && (
             <div className="status-block">
+              {turn > 0 ? (
+                <div className="status-turn">
+                  Question {turn}
+                  {machineState === 'doneSuccess' ? ' · saved' : ''}
+                </div>
+              ) : null}
               <div className="status-text">{statusMessage}</div>
               {showSkipButton ? (
                 <div className="status-actions">
@@ -197,64 +223,38 @@ export function FloatingVoiceRecorder({
           )}
         </div>
 
-        {/* Error Alerts (in floating context) */}
-        <div className="floating-voice-recorder__alerts">
-          {providerError && (
+        {/* A single, highest-severity alert. Stacking all three at once buried
+            the actionable one under near-identical banners. */}
+        {activeAlert ? (
+          <div className="floating-voice-recorder__alerts">
             <div className="alert-banner alert-banner--error" role="alert">
-              <div className="alert-banner__title">
-                ⚠️ Trouble reaching Google
-                {providerError.status ? ` · HTTP ${providerError.status}` : ''}
-              </div>
-              <div className="alert-banner__message">{providerError.message}</div>
-              <div className="alert-banner__meta">
-                Captured {providerError.at || 'time unknown'} · Reason:{' '}
-                {providerError.reason ? providerError.reason.replace(/_/g, ' ') : 'unspecified'} ·{' '}
-                <a className="link" href={diagnosticsHref}>
-                  Review diagnostics
-                </a>
-              </div>
-              {providerError.snippet && (
-                <pre className="alert-banner__snippet">{providerError.snippet}</pre>
-              )}
-            </div>
-          )}
-          {startupError && (
-            <div className="alert-banner alert-banner--error" role="alert">
-              <div className="alert-banner__title">🚫 Startup blocked</div>
-              <div className="alert-banner__message">{startupError}</div>
-              {startupDetails.length ? (
+              <div className="alert-banner__title">{activeAlert.title}</div>
+              <div className="alert-banner__message">{activeAlert.message}</div>
+              {activeAlert.details.length ? (
                 <div className="alert-banner__details">
-                  {startupDetails.map((detail, index) => (
-                    <div key={`startup-detail-${index}`}>• {detail}</div>
+                  {activeAlert.details.map((detail, index) => (
+                    <div key={`${activeAlert.kind}-detail-${index}`}>• {detail}</div>
                   ))}
                 </div>
               ) : null}
+              {activeAlert.kind === 'startup' ? <SetupStatus /> : null}
               <div className="alert-banner__meta">
+                {activeAlert.kind === 'provider' && providerError ? (
+                  <>
+                    Captured {providerError.at || 'time unknown'} · Reason:{' '}
+                    {providerError.reason ? providerError.reason.replace(/_/g, ' ') : 'unspecified'} ·{' '}
+                  </>
+                ) : null}
                 <a className="link" href={diagnosticsHref}>
                   Open diagnostics
                 </a>
               </div>
-            </div>
-          )}
-          {fatalError && (
-            <div className="alert-banner alert-banner--error" role="alert">
-              <div className="alert-banner__title">🛑 Session halted</div>
-              <div className="alert-banner__message">{fatalError}</div>
-              {fatalDetails.length ? (
-                <div className="alert-banner__details">
-                  {fatalDetails.map((detail, index) => (
-                    <div key={`fatal-detail-${index}`}>• {detail}</div>
-                  ))}
-                </div>
+              {activeAlert.kind === 'provider' && providerError?.snippet ? (
+                <pre className="alert-banner__snippet">{providerError.snippet}</pre>
               ) : null}
-              <div className="alert-banner__meta">
-                <a className="link" href={diagnosticsHref}>
-                  Review diagnostics
-                </a>
-              </div>
             </div>
-          )}
-        </div>
+          </div>
+        ) : null}
       </div>
     </div>
   )
