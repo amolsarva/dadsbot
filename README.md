@@ -30,9 +30,10 @@ DadsBot is a Next.js 14 app that captures long-form oral histories with warm, bi
 
 ## Environment variables
 - **Supabase storage:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET` (validated in `utils/blob-env.ts`).
-- **Supabase tables:** `SUPABASE_TURNS_TABLE` (optional but recommended), `SUPABASE_SESSIONS_TABLE` (required). Client diagnostics expect `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET`, and `NEXT_PUBLIC_SUPABASE_TURNS_TABLE`.
-- **Email:** `DEFAULT_NOTIFY_EMAIL` must be a real inbox; validated on server bootstrap.
-- **Providers:** `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `SENDGRID_API_KEY` as applicable. No defaults are assumed. `GOOGLE_MODEL` must be set wherever Google calls are used.
+- **Supabase tables:** `SUPABASE_SESSIONS_TABLE` and `SUPABASE_TURNS_TABLE` are both **required** — neither has a default, and `/api/save-turn` rejects every turn when the turns table is unset. Client diagnostics expect `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET`, and `NEXT_PUBLIC_SUPABASE_TURNS_TABLE`.
+- **Email:** `DEFAULT_NOTIFY_EMAIL` must be a real inbox and `MAIL_FROM` must be set before a recap can send; both are validated when used, not at boot.
+- **Providers:** `GOOGLE_API_KEY` (transcription + interviewer replies, required), `OPENAI_API_KEY` (text-to-speech, required), `RESEND_API_KEY` or `SENDGRID_API_KEY` (recap email, optional). `GOOGLE_MODEL` is optional — `lib/google.ts` falls back to `gemini-2.5-flash-lite`.
+- **Checking configuration:** `GET /api/setup-status` reports which required groups are present (presence only, never values). The app surfaces the same list in the UI when a session fails to start.
 - **Platform context:** diagnostics log `VERCEL`, `VERCEL_ENV`, and `NODE_ENV` for traceability.
 
 ## Supabase setup
@@ -48,7 +49,7 @@ DadsBot is a Next.js 14 app that captures long-form oral histories with warm, bi
   1. Key sentences from the latest user turns are categorised by Interview Guide stage.
   2. All sessions for that handle are re-analysed, newest notes flagged as “Latest”, and a biography-style cheat sheet is rewritten.
   3. The markdown snapshot is uploaded to blob storage and cached in-memory for fast reuse.
-- Inspect or download primers via the Netlify CLI: `netlify blobs:list --site $NETLIFY_BLOBS_SITE_ID --store memory --prefix primers/` and `netlify blobs:get --site $NETLIFY_BLOBS_SITE_ID --store memory --key primers/<HANDLE>.md`. Session manifests remain under `sessions/{id}/` alongside transcripts.
+- Storage is Supabase Storage (`lib/blob.ts`), not Netlify Blobs. Inspect primers and manifests in the Supabase dashboard under the `SUPABASE_STORAGE_BUCKET` bucket, or via the `sessions/` and `memory/primers/` prefixes with the Supabase CLI. Session manifests live under `sessions/{id}/` alongside transcripts.
 
 ## Calibration & copy sources
 - **Interview scaffolding:** `docs/interview-guide.md` and `lib/interview-guide.ts` load the guide at runtime.
@@ -59,11 +60,11 @@ DadsBot is a Next.js 14 app that captures long-form oral histories with warm, bi
 
 ## Diagnostics & audits
 - **Diagnostics dashboard:** `/diagnostics` shows health checks, provider failures, and links to localStorage payloads (`DIAGNOSTIC_TRANSCRIPT_STORAGE_KEY`, `DIAGNOSTIC_PROVIDER_ERROR_STORAGE_KEY`). The home panel mirrors recent state transitions; browser storage keeps a rolling log per handle.
-- **Blob helpers:** `app/api/blob/[...path]` surfaces inline blob contents using the site’s Netlify credentials. Use `netlify blobs:list`/`netlify blobs:get` to inspect `sessions/` and `memory/primers/` prefixes.
+- **Blob helpers:** `app/api/blob/[...path]` surfaces inline blob contents from Supabase Storage. Browse the `sessions/` and `memory/primers/` prefixes in the Supabase Storage dashboard.
 - **OpenAI diagnostics:** `/api/diagnostics/openai` now refuses to run unless both `OPENAI_API_KEY` and `OPENAI_DIAGNOSTICS_MODEL` are set; it logs hypotheses and fails fast with `missing_openai_api_key`/`missing_openai_model` errors when env vars are absent.
 - **Google usage audit:**
   - Real Google calls occur in `app/api/ask-audio/route.ts` and `app/api/session/[id]/intro/route.ts` (REST) plus `app/api/diagnostics/google/route.ts` (SDK). All require `GOOGLE_API_KEY` and `GOOGLE_MODEL`.
-  - `lib/google.ts` resolves `GOOGLE_MODEL` but ultimately calls OpenAI chat completions.
+  - `lib/google.ts` resolves `GOOGLE_MODEL` and builds a Gemini client via `@google/generative-ai`. It does **not** call OpenAI — OpenAI is used only for text-to-speech in `lib/openaiTts.ts`.
   - Removing Google: replace REST calls in `ask-audio` and session intro, remove diagnostics route, and drop Google env vars/dependency. Reintroducing Google should centralize client creation and add env validation.
 
 ## Hosting diagnostics & branch hygiene
@@ -79,5 +80,7 @@ Active backlog lives in [ToDoLater.txt](ToDoLater.txt). Key themes still open:
 ## Quick commands
 - **Fallback sync:** `pnpm fallback:sync` after editing fallback copy.
 - **Supabase schema:** run statements in `docs/supabase-schema.sql` to align tables and indexes.
-- **Netlify blobs inspection:** `netlify blobs:list --site $NETLIFY_BLOBS_SITE_ID --store memory --prefix sessions/` and `netlify blobs:get --site $NETLIFY_BLOBS_SITE_ID --store memory --key sessions/<SESSION_ID>/session.json`.
+- **Storage inspection:** browse the `SUPABASE_STORAGE_BUCKET` bucket in the Supabase dashboard (`sessions/<SESSION_ID>/session-<SESSION_ID>.json` holds each session manifest).
+- **Config check:** `curl -s localhost:3000/api/setup-status | jq` lists any missing required environment variables.
+- **Full CI locally:** `npm run ci-check` (lint + type-check + build); `npm test` for unit tests. CI runs all of these on every pull request.
 
