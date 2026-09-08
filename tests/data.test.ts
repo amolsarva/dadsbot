@@ -28,6 +28,34 @@ vi.mock('../lib/email', () => ({
   sendSummaryEmail: sendEmailMock,
 }))
 
+/**
+ * Stand-in for the Supabase-backed session table. It mirrors the real store's
+ * contract: `turns` are stripped before persistence (they live in blob
+ * manifests), and reads return the sanitized row.
+ */
+const sessionRows = new Map<string, Record<string, unknown>>()
+vi.mock('../lib/session-store', () => ({
+  sessionsTableName: () => 'sessions',
+  upsertSessionRecord: vi.fn(async (record: any) => {
+    const { turns: _turns, ...rest } = record
+    sessionRows.set(rest.id, { ...rest })
+    return { ...rest }
+  }),
+  fetchSessionRecord: vi.fn(async (id: string) => {
+    const row = sessionRows.get(id)
+    return row ? { ...row } : null
+  }),
+  fetchAllSessions: vi.fn(async () => Array.from(sessionRows.values()).map((row) => ({ ...row }))),
+  deleteSessionRecord: vi.fn(async (id: string) => {
+    sessionRows.delete(id)
+  }),
+  sessionDbHealth: vi.fn(async () => ({ ok: true, table: 'sessions' })),
+}))
+
+beforeEach(() => {
+  sessionRows.clear()
+})
+
 afterEach(() => {
   global.fetch = originalFetch
   listBlobsMock.mockImplementation(async () => ({ blobs: [], hasMore: false, nextCursor: null }))
@@ -112,7 +140,10 @@ describe('finalizeSession', () => {
     expect(result.emailed).toBe(false)
     expect(result.emailStatus).toEqual({ ok: false, provider: 'resend', error: 'bad' })
     const stored = await data.getSession(session.id)
-    expect(stored?.status).toBe('error')
+    // The recording itself succeeded, so the session stays 'completed' — only
+    // the recap email failed. The failure is surfaced via emailStatus and the
+    // fox below rather than by marking intact session data as an error.
+    expect(stored?.status).toBe('completed')
     expect(stored?.title && stored.title.length).toBeTruthy()
     const foxes = listFoxes()
     expect(foxes.some((fox) => fox.id === 'theory-4-email-status-error')).toBe(true)
