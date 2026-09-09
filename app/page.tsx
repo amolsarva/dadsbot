@@ -788,7 +788,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
       event.preventDefault()
       const normalized = normalizeHandle(handleInput)
       if (!normalized) {
-        setNewUserError('Enter a handle to create a new user.')
+        setNewUserError('Please type a name.')
         return
       }
       rememberHandle(normalized)
@@ -2433,7 +2433,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
                 }
               }}
             >
-              <span className="account-switcher__label">Account</span>
+              <span className="account-switcher__label">Who&apos;s talking</span>
               <span className="account-switcher__value">
                 {normalizedHandle ? `@${normalizedHandle}` : 'Guest'}
               </span>
@@ -2453,7 +2453,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
                     role="menuitem"
                     onClick={handleClearSelection}
                   >
-                    Continue as guest
+                    Someone else (guest)
                   </button>
                 ) : null}
                 {availableHandles.map((handle) => (
@@ -2484,7 +2484,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
                     })
                   }}
                 >
-                  New user…
+                  Add a new person
                 </button>
                 {isAddingNewUser ? (
                   <form className="account-switcher__new" onSubmit={handleNewUserSubmit}>
@@ -2495,8 +2495,8 @@ export function Home({ userHandle }: { userHandle?: string }) {
                         setHandleInput(event.target.value)
                         if (newUserError) setNewUserError(null)
                       }}
-                      placeholder="Enter a handle"
-                      aria-label="New user handle"
+                      placeholder="Your first name"
+                      aria-label="Your first name"
                       autoComplete="off"
                       inputMode="text"
                     />
