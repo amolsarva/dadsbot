@@ -2288,6 +2288,51 @@ input[type="checkbox"] {
   gap: 12px;
 }
 
+.clear-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  max-width: 460px;
+}
+
+.clear-confirm__warning {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.clear-confirm__label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.clear-confirm__input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  color: #0a1428;
+}
+
+.clear-confirm__error {
+  margin: 0;
+  font-size: 12px;
+  color: #fca5a5;
+}
+
+.clear-confirm__actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
 .setup-status {
   margin-top: 12px;
   padding: 14px;

@@ -7,9 +7,24 @@ import {
   readBlob,
 } from '@/lib/blob'
 import { jsonErrorResponse } from '@/lib/api-error'
+import { isOperatorRequest, operatorForbiddenResponse } from '@/lib/operator-auth'
 import { logBlobDiagnostic } from '@/utils/blob-env'
 
 const ROUTE_NAME = 'app/api/blob'
+
+// Reads are limited to the prefixes the app actually serves artifacts from, so
+// this proxy cannot be walked over the whole bucket.
+const READABLE_PREFIXES = ['sessions/', 'transcripts/', 'memory/']
+
+function isTraversal(path: string): boolean {
+  return path.split('/').some((segment) => segment === '..')
+}
+
+function isReadablePath(path: string): boolean {
+  const normalized = normalizePath(path)
+  if (!normalized || isTraversal(normalized)) return false
+  return READABLE_PREFIXES.some((prefix) => normalized.startsWith(prefix))
+}
 
 function serializeError(error: unknown) {
   if (error instanceof Error) {
@@ -73,6 +88,11 @@ async function handleBlobRequest(path: string, download: boolean, includeBody: b
       note: 'Blob request missing required path parameter',
     })
     return NextResponse.json({ ok: false, reason: 'missing path' }, { status: 400 })
+  }
+
+  if (!isReadablePath(path)) {
+    logRouteEvent('error', 'blob-route:read:path-rejected', { path })
+    return NextResponse.json({ ok: false, reason: 'path not readable' }, { status: 403 })
   }
 
   logRouteEvent('log', 'blob-route:read:start', {
@@ -185,9 +205,15 @@ export async function HEAD(req: NextRequest, { params }: { params: { path?: stri
 }
 
 export async function PUT(req: NextRequest, { params }: { params: { path?: string[] | string } }) {
+  // Unauthenticated writes here could overwrite any family's memory primer or
+  // session audio at an arbitrary storage path.
+  if (!isOperatorRequest(req)) {
+    logRouteEvent('error', 'blob-route:put:forbidden', { url: req.url })
+    return operatorForbiddenResponse()
+  }
   primeContext(req)
   const path = extractPath(params)
-  if (!path) {
+  if (!path || isTraversal(normalizePath(path))) {
     logRouteEvent('error', 'blob-route:put:missing-path', {
       method: 'PUT',
       url: req.url,
@@ -276,9 +302,14 @@ export async function PUT(req: NextRequest, { params }: { params: { path?: strin
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { path?: string[] | string } }) {
+  // This is the endpoint that could delete the archive object by object.
+  if (!isOperatorRequest(_req)) {
+    logRouteEvent('error', 'blob-route:delete:forbidden', { url: _req.url })
+    return operatorForbiddenResponse()
+  }
   primeContext(_req)
   const path = extractPath(params)
-  if (!path) {
+  if (!path || isTraversal(normalizePath(path))) {
     logRouteEvent('error', 'blob-route:delete:missing-path', {
       method: 'DELETE',
       url: _req.url,

@@ -161,6 +161,9 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
   const [rows, setRows] = useState<Row[]>([])
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [clearingAll, setClearingAll] = useState(false)
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
+  const [clearConfirmText, setClearConfirmText] = useState('')
+  const [clearError, setClearError] = useState<string | null>(null)
   const [activeHandle, setActiveHandle] = useState<string | undefined>(normalizedPropHandle)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [profileLoading, setProfileLoading] = useState(true)
@@ -316,19 +319,37 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
   )
 
   const handleClearAll = useCallback(async () => {
+    const handle = resolveHandle()
+    // Deleting is per-account by design; there is deliberately no global wipe.
+    if (!handle) {
+      setClearError('Choose an account before clearing history — bulk deletion is not available.')
+      setClearConfirmOpen(false)
+      return
+    }
+    if (clearConfirmText.trim().toLowerCase() !== handle.toLowerCase()) {
+      setClearError(`Type ${handle} exactly to confirm.`)
+      return
+    }
+
     setClearingAll(true)
+    setClearError(null)
     try {
-      const handle = resolveHandle()
-      const query = handle ? `?handle=${encodeURIComponent(handle)}` : ''
-      const resp = await fetch(`/api/history${query}`, { method: 'DELETE' })
+      const resp = await fetch(`/api/history?handle=${encodeURIComponent(handle)}`, { method: 'DELETE' })
       if (resp.ok) {
         setRows([])
         setProfile(null)
+        setClearConfirmOpen(false)
+        setClearConfirmText('')
+      } else {
+        const body = await resp.json().catch(() => null)
+        setClearError(body?.message || 'Could not clear this history. Nothing was deleted.')
       }
+    } catch {
+      setClearError('Could not reach the server. Nothing was deleted.')
     } finally {
       setClearingAll(false)
     }
-  }, [resolveHandle])
+  }, [clearConfirmText, resolveHandle])
 
   const runFixer = useCallback(async () => {
     setFixerStatus('running')
@@ -648,14 +669,63 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
           </ul>
         )}
         <div className="history-footer">
-          <button
-            type="button"
-            onClick={handleClearAll}
-            className="link-button link-danger"
-            disabled={clearingAll || rows.length === 0}
-          >
-            {clearingAll ? 'Clearing…' : 'Clear all history'}
-          </button>
+          {clearConfirmOpen ? (
+            <div className="clear-confirm" role="alertdialog" aria-label="Confirm deleting all history">
+              <p className="clear-confirm__warning">
+                This permanently deletes every recorded session
+                {resolveHandle() ? ` for @${resolveHandle()}` : ''}, including transcripts and
+                audio. It cannot be undone.
+              </p>
+              <label className="clear-confirm__label" htmlFor="clear-confirm-input">
+                Type <strong>{resolveHandle() || 'the account handle'}</strong> to confirm:
+              </label>
+              <input
+                id="clear-confirm-input"
+                className="clear-confirm__input"
+                value={clearConfirmText}
+                onChange={(event) => {
+                  setClearConfirmText(event.target.value)
+                  if (clearError) setClearError(null)
+                }}
+                autoComplete="off"
+              />
+              {clearError ? <p className="clear-confirm__error">{clearError}</p> : null}
+              <div className="clear-confirm__actions">
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={() => {
+                    setClearConfirmOpen(false)
+                    setClearConfirmText('')
+                    setClearError(null)
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="link-button link-danger"
+                  onClick={handleClearAll}
+                  disabled={clearingAll}
+                >
+                  {clearingAll ? 'Deleting…' : 'Permanently delete'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setClearConfirmOpen(true)
+                setClearConfirmText('')
+                setClearError(null)
+              }}
+              className="link-button link-danger"
+              disabled={clearingAll || rows.length === 0}
+            >
+              Clear all history
+            </button>
+          )}
         </div>
       </div>
 
