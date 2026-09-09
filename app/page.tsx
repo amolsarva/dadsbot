@@ -24,7 +24,6 @@ import { ChatTab } from '@/components/tabs/chat-tab'
 import { HistoryTab } from '@/components/tabs/history-tab'
 import { SettingsTab } from '@/components/tabs/settings-tab'
 import { FloatingVoiceRecorder } from '@/components/floating-voice-recorder'
-import { ServiceStatusGrid } from '@/components/service-status-grid'
 
 const HARD_TURN_LIMIT_MS = 90_000
 const DEFAULT_BASELINE = 0.004
@@ -485,7 +484,7 @@ const STATE_VISUALS: Record<
     icon: '',
     badge: '',
     title: 'Start',
-    description: 'Tap to begin your interview',
+    description: 'Press here to begin',
     tone: {
       accent: '#1b8d55',
       gradient: 'linear-gradient(135deg, rgba(255, 186, 102, 0.3), rgba(255, 247, 237, 0.88), rgba(121, 205, 159, 0.32))',
@@ -494,8 +493,8 @@ const STATE_VISUALS: Record<
   calibrating: {
     icon: '',
     badge: '',
-    title: 'Preparing',
-    description: 'Setting up microphone…',
+    title: 'Getting ready',
+    description: 'Setting up the microphone…',
     tone: {
       accent: '#0ea5e9',
       gradient: 'linear-gradient(135deg, rgba(125, 211, 161, 0.28), rgba(14, 165, 233, 0.24))',
@@ -505,7 +504,7 @@ const STATE_VISUALS: Record<
     icon: '',
     badge: '',
     title: 'Listening',
-    description: 'Tap when you\u2019re done speaking',
+    description: 'I can hear you — take your time',
     tone: {
       accent: '#f97316',
       gradient: 'linear-gradient(135deg, rgba(255, 186, 102, 0.3), rgba(255, 247, 237, 0.82), rgba(19, 136, 8, 0.22))',
@@ -515,7 +514,7 @@ const STATE_VISUALS: Record<
     icon: '',
     badge: '',
     title: 'Thinking',
-    description: 'Analyzing your response…',
+    description: 'Thinking about what you said…',
     tone: {
       accent: '#9333ea',
       gradient: 'linear-gradient(135deg, rgba(244, 187, 255, 0.28), rgba(190, 227, 248, 0.26))',
@@ -535,7 +534,7 @@ const STATE_VISUALS: Record<
     icon: '',
     badge: '',
     title: 'Speaking',
-    description: 'Tap to skip ahead',
+    description: 'Press to skip ahead',
     tone: {
       accent: '#f97316',
       gradient: 'linear-gradient(135deg, rgba(255, 186, 102, 0.32), rgba(255, 247, 237, 0.86))',
@@ -545,7 +544,7 @@ const STATE_VISUALS: Record<
     icon: '',
     badge: '',
     title: 'Continue',
-    description: 'Tap to start next question',
+    description: 'Press when you are ready',
     tone: {
       accent: '#1b8d55',
       gradient: 'linear-gradient(135deg, rgba(121, 205, 159, 0.3), rgba(255, 247, 237, 0.8))',
@@ -554,8 +553,8 @@ const STATE_VISUALS: Record<
   doneSuccess: {
     icon: '',
     badge: '',
-    title: 'Done',
-    description: 'Session saved',
+    title: 'All done',
+    description: 'Your story is saved',
     tone: {
       accent: '#0f7c4b',
       gradient: 'linear-gradient(135deg, rgba(121, 205, 159, 0.26), rgba(255, 247, 237, 0.82))',
@@ -930,7 +929,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
           const message = 'Session initialization returned an empty identifier.'
           logSessionDiagnostic('error', message, { result })
           pushLog('Session initialization failed: empty identifier returned')
-          setStartupError('Session initialization failed — diagnostics required.')
+          setStartupError('We could not get things ready. Please try again in a moment.')
           setStartupDetails([
             'The session API returned an empty identifier.',
             'Open Diagnostics and review the failing checks before retrying.',
@@ -959,11 +958,8 @@ export function Home({ userHandle }: { userHandle?: string }) {
         const detail = error instanceof Error ? error.message : 'Unknown error'
         const detailMessage = truncateForLog(detail, 200)
         pushLog('Session initialization failed: ' + detailMessage)
-        setStartupError('Session initialization failed — diagnostics required.')
-        setStartupDetails([
-          `Reason: ${detailMessage}`,
-          'Open Diagnostics and review the failing checks before retrying.',
-        ])
+        setStartupError('We could not get things ready. Please try again in a moment.')
+        setStartupDetails([`Reason: ${detailMessage}`])
         const { state } = getScopedSessionState(normalizedHandle)
         state.inMemorySessionId = null
         clearStoredSessionId(normalizedHandle)
@@ -1520,7 +1516,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
           pushLog(`[turn ${turnNumber}] Provider error flagged → ${providerErrorForTurn.status ? `HTTP ${providerErrorForTurn.status}` : 'request failed'} [${providerErrorForTurn.reason || 'unknown'}] ${truncateForLog(providerErrorForTurn.message || '', 160)}`)
         }
         const fatalDetails = [...detailParts, 'Resolve diagnostics before continuing.']
-        recordFatal('Turn failed — assistant reply unavailable.', fatalDetails)
+        recordFatal('Sorry — I did not catch that. Please try again.', fatalDetails)
         return
       }
 
@@ -1731,7 +1727,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
         }
       } catch (error) {
         const reason = error instanceof Error ? error.message : 'Unknown TTS error'
-        recordFatal('Turn failed — text-to-speech unavailable.', [
+        recordFatal('I could not speak out loud. Please check your volume and try again.', [
           `Reason: ${truncateForLog(reason, 160)}`,
           'Review the text-to-speech diagnostics before retrying.',
         ])
@@ -1935,7 +1931,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
             ? null
             : truncateForLog(document.cookie || '(no cookies)', 200),
       })
-      recordFatal('Session unavailable — cannot request intro.', [
+      recordFatal('We could not start a new conversation. Please try again.', [
         'The app could not find a session identifier before starting.',
         'Run Diagnostics to confirm session storage and try again.',
       ])
@@ -2001,7 +1997,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
         if (snippet) {
           details.push(`Body: ${snippet}`)
         }
-        recordFatal('Intro prompt request failed.', [
+        recordFatal('I could not think of a first question. Please try again.', [
           ...details,
           'Run Diagnostics and resolve the failure before starting again.',
         ])
@@ -2016,11 +2012,11 @@ export function Home({ userHandle }: { userHandle?: string }) {
           details.push(`Fallback question: ${truncateForLog(json.debug.fallbackQuestion, 160)}`)
         }
         details.push('Resolve diagnostics before continuing.')
-        recordFatal('Intro prompt returned fallback copy.', details)
+        recordFatal('I could not think of a first question. Please try again.', details)
         return
       }
       if (!json || typeof json.message !== 'string' || !json.message.trim().length) {
-        recordFatal('Intro prompt returned an empty message.', [
+        recordFatal('I could not think of a first question. Please try again.', [
           'The assistant cannot begin without a scripted welcome.',
         ])
         return
@@ -2067,7 +2063,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
       }
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'Unknown intro error'
-      recordFatal('Intro preparation failed.', [
+      recordFatal('I could not get ready to talk. Please try again.', [
         `Reason: ${truncateForLog(reason, 160)}`,
         'Check diagnostics and try again.',
       ])
@@ -2101,9 +2097,8 @@ export function Home({ userHandle }: { userHandle?: string }) {
         storedSessionId: preTtsStoredSessionId ?? null,
         cookies: preTtsCookies,
       })
-      recordFatal('Session lost before playback — diagnostics required.', [
-        'The app could not confirm your session before starting text-to-speech.',
-        'Verify cookies/storage and try restarting the conversation.',
+      recordFatal('We lost track of this conversation. Please start again.', [
+        'The app could not confirm the session before speaking.',
       ])
       return
     }
@@ -2119,7 +2114,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
       })
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'Unknown TTS error'
-      recordFatal('Intro playback failed.', [
+      recordFatal('I could not speak out loud. Please check your volume and try again.', [
         `Reason: ${truncateForLog(reason, 160)}`,
         'Review the text-to-speech diagnostics before retrying.',
       ])
@@ -2272,37 +2267,37 @@ export function Home({ userHandle }: { userHandle?: string }) {
               : 'Session status indicator'
   const statusMessage = (() => {
     if (startupError) {
-      return 'Startup blocked—resolve Diagnostics before beginning.'
+      return 'We could not get things ready. Please try again in a moment.'
     }
     if (fatalError) {
-      return 'Session halted—review Diagnostics for details.'
+      return 'Something went wrong, so I stopped. Your saved stories are safe.'
     }
     if (!hasStarted) {
-      return 'Tap the circle when you’re ready—I’ll welcome you and ask the first question.'
+      return 'Press the circle when you are ready and I will ask the first question.'
     }
     if (finishRequested) {
-      return 'Wrapping up your session.'
+      return 'Saving your story…'
     }
     if (manualStopRequested) {
-      return 'Stopping the recording now.'
+      return 'One moment…'
     }
     switch (machineState) {
       case 'calibrating':
-        return 'Measuring the room noise before we begin.'
+        return 'Getting the microphone ready…'
       case 'recording':
-        return 'Listening now. Take your time and tap the ring when you’re finished.'
+        return 'I am listening. Take your time — press the circle when you have finished talking.'
       case 'thinking':
-        return 'Processing what you shared…'
+        return 'Thinking about what you said…'
       case 'speakingPrep':
-        return 'Getting ready to speak with you.'
+        return 'Getting ready to answer…'
       case 'playing':
-        return 'Sharing what I heard back to you.'
+        return 'Speaking now — have a listen.'
       case 'readyToContinue':
-        return 'Ready when you are—just start speaking.'
+        return 'Ready when you are — just start talking.'
       case 'doneSuccess':
-        return 'Session saved. Tap Start Again to record another memory.'
+        return 'All saved. Press “Start again” whenever you would like to tell another story.'
       default:
-        return 'Preparing to begin—I’ll speak first.'
+        return 'Getting ready…'
     }
   })()
 
@@ -2311,7 +2306,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
   const statusHint = manualStopRequested
     ? 'Next queued — finishing this turn…'
     : showSkipButton
-      ? 'Skip the pause if you’re ready for the next question.'
+      ? 'Press if you are ready for the next question.'
       : null
 
   const _providerErrorTimestamp = providerError?.at
@@ -2535,7 +2530,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
               onClick={() => setActiveTab('chat')}
               aria-current={activeTab === 'chat' ? 'page' : undefined}
             >
-              Interview
+              Talk
             </button>
             <button
               type="button"
@@ -2543,7 +2538,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
               onClick={() => setActiveTab('history')}
               aria-current={activeTab === 'history' ? 'page' : undefined}
             >
-              History
+              My stories
             </button>
             <button
               type="button"
@@ -2567,9 +2562,10 @@ export function Home({ userHandle }: { userHandle?: string }) {
             {activeTab === 'settings' && <SettingsTab handle={normalizedHandle} />}
           </div>
 
-          <div className="panel-card service-status-footer">
-            <ServiceStatusGrid diagnosticsHref={diagnosticsHref} />
-          </div>
+          {/* The services panel named Gemini, Voice and Storage on the home
+              screen — meaningless to a storyteller, and alarming when a dot
+              turned red. It lives on /diagnostics now. If something is actually
+              missing, the recorder says so in plain words instead. */}
         </section>
       </div>
     </main>

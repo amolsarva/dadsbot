@@ -160,6 +160,11 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
   const normalizedPropHandle = normalizeHandle(userHandle)
   const [rows, setRows] = useState<Row[]>([])
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  // Operator tools (the repair job, database counters, raw storage errors) are
+  // hidden from the storyteller: a family should never be shown "History Fixer"
+  // or a Supabase stack trace. Append ?operator=1 once to reveal them; the
+  // choice is remembered on that device only.
+  const [isOperator, setIsOperator] = useState(false)
   const [clearingAll, setClearingAll] = useState(false)
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
   const [clearConfirmText, setClearConfirmText] = useState('')
@@ -176,6 +181,26 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
   const [fixerReport, setFixerReport] = useState<FixerReport | null>(null)
   const [fixerError, setFixerError] = useState<string | null>(null)
   const maintenanceRanRef = useRef(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const requested = new URLSearchParams(window.location.search).get('operator')
+      if (requested === '1') {
+        window.localStorage.setItem('operatorMode', '1')
+        setIsOperator(true)
+        return
+      }
+      if (requested === '0') {
+        window.localStorage.removeItem('operatorMode')
+        setIsOperator(false)
+        return
+      }
+      setIsOperator(window.localStorage.getItem('operatorMode') === '1')
+    } catch {
+      setIsOperator(false)
+    }
+  }, [])
   const derivedMetrics = useMemo(() => deriveMetricsFromRows(rows), [rows])
   const scopedMetrics = metrics && metrics.scoped.sessionCount > 0 ? metrics.scoped : derivedMetrics.scoped
   const globalMetrics = metrics && metrics.global.sessionCount > 0 ? metrics.global : derivedMetrics.global
@@ -470,6 +495,7 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
       </div>
 
       {/* Sessions List */}
+      {isOperator ? (
       <div className="panel-card history-fixer-card">
         <div className="history-fixer-header">
           <h2 className="page-heading">History Fixer</h2>
@@ -534,6 +560,7 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
           </ul>
         ) : null}
       </div>
+      ) : null}
 
       <div className="panel-card">
         <h2 className="page-heading">Sessions</h2>
@@ -729,6 +756,7 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
         </div>
       </div>
 
+      {isOperator ? (
       <div className="panel-card history-metrics-card">
         <h2 className="page-heading">Database Metrics</h2>
         {metricsLoading ? (
@@ -820,6 +848,7 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
           <p className="history-metrics-error">{metricsError}</p>
         )}
       </div>
+      ) : null}
     </main>
   )
 }

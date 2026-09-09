@@ -84,6 +84,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   }
   const buildTimestampLabel = `This build is from ${formattedTime}`
 
+  const hasBuildMetadata =
+    Boolean(commitSha) && commitMessage !== 'commit message unavailable'
+
   const defaultEmailBootstrapScript = tryBuildDefaultEmailBootstrapScript()
   const deploymentBootstrapScript = buildDeploymentBootstrapScript(deploymentMetadata)
 
@@ -97,18 +100,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <h1 className="site-title">DadsBot</h1>
           </header>
           <div className="panel-section">{children}</div>
-          <footer className="site-footer">
-            {commitUrl ? (
-              <a href={commitUrl}>
-                {shortSha} — {commitMessage}
-              </a>
-            ) : (
-              <span>
-                {shortSha} — {commitMessage}
-              </span>
-            )}{' '}
-            · {buildTimestampLabel}
-          </footer>
+          {/* Build provenance is for whoever deploys the app, not the family
+              using it. It used to read "missing — commit message unavailable"
+              to every visitor, so it is hidden unless real metadata exists. */}
+          {hasBuildMetadata ? (
+            <footer className="site-footer">
+              {commitUrl ? (
+                <a href={commitUrl}>
+                  {shortSha} — {commitMessage}
+                </a>
+              ) : (
+                <span>
+                  {shortSha} — {commitMessage}
+                </span>
+              )}{' '}
+              · {buildTimestampLabel}
+            </footer>
+          ) : null}
         </div>
       </body>
     </html>

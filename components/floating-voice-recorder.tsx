@@ -95,14 +95,15 @@ export function FloatingVoiceRecorder({
     message: string
     details: string[]
   } | null = fatalError
-    ? { kind: 'fatal', title: '🛑 Session halted', message: fatalError, details: fatalDetails }
+    ? { kind: 'fatal', title: 'We had to stop', message: fatalError, details: fatalDetails }
     : startupError
-      ? { kind: 'startup', title: '🚫 Could not start', message: startupError, details: startupDetails }
+      ? { kind: 'startup', title: 'We can’t start just yet', message: startupError, details: startupDetails }
       : providerError
         ? {
+            // The storyteller does not need to know which vendor failed.
             kind: 'provider',
-            title: `⚠️ Trouble reaching Google${providerError.status ? ` · HTTP ${providerError.status}` : ''}`,
-            message: providerError.message,
+            title: 'I’m having trouble hearing you',
+            message: 'Something went wrong on our side. Please try again in a moment.',
             details: [],
           }
         : null
@@ -113,31 +114,34 @@ export function FloatingVoiceRecorder({
         {showWelcome ? (
           <div className="recorder-welcome">
             <h2 className="recorder-welcome__title">
-              {accountHandle ? `Welcome back, @${accountHandle}` : 'Capture a memory, one question at a time'}
+              {accountHandle ? `Welcome back, ${accountHandle}` : 'Tell me a story from your life'}
             </h2>
             <p className="recorder-welcome__lede">
-              DadsBot is a warm, voice-first biographer. Tap the circle below and it
-              will ask a question, then listen as you answer—no typing required.
+              I&apos;ll ask you a question out loud. You just answer in your own
+              words — there is nothing to type, and no wrong answer.
             </p>
             <ol className="recorder-welcome__steps">
               <li>
                 <span className="recorder-welcome__step-num">1</span>
-                Tap the circle to begin (we&apos;ll ask for the microphone once).
+                Press the big orange circle below to start.
               </li>
               <li>
                 <span className="recorder-welcome__step-num">2</span>
-                Listen to the question, then just start talking.
+                Your phone will ask to use the microphone. Choose Allow.
               </li>
               <li>
                 <span className="recorder-welcome__step-num">3</span>
-                Tap when you&apos;re done, or say you&apos;re finished to save and email a recap.
+                Listen to my question, then talk for as long as you like.
+              </li>
+              <li>
+                <span className="recorder-welcome__step-num">4</span>
+                When you are finished, press &ldquo;I&apos;m finished&rdquo;. Everything is saved for you.
               </li>
             </ol>
             {!accountHandle ? (
               <div className="recorder-welcome__guest">
                 <span>
-                  You&apos;re recording as a <strong>guest</strong>. Add a name so your
-                  stories are saved and remembered next time.
+                  Tell me your name and I&apos;ll remember your stories next time.
                 </span>
                 <button type="button" className="btn-secondary" onClick={onNameYourself}>
                   Add your name
@@ -207,14 +211,14 @@ export function FloatingVoiceRecorder({
                   onClick={onStartAgain}
                   className="btn-secondary btn-large"
                 >
-                  Start Again
+                  Start again
                 </button>
               ) : null}
               {machineState !== 'doneSuccess' && (
                 <button
                   onClick={requestFinish}
                   disabled={heroDisabled || !hasStarted || finishRequested}
-                  className="btn-outline"
+                  className="btn-secondary btn-large"
                 >
                   I&apos;m finished
                 </button>
@@ -230,28 +234,36 @@ export function FloatingVoiceRecorder({
             <div className="alert-banner alert-banner--error" role="alert">
               <div className="alert-banner__title">{activeAlert.title}</div>
               <div className="alert-banner__message">{activeAlert.message}</div>
-              {activeAlert.details.length ? (
-                <div className="alert-banner__details">
-                  {activeAlert.details.map((detail, index) => (
-                    <div key={`${activeAlert.kind}-detail-${index}`}>• {detail}</div>
-                  ))}
-                </div>
-              ) : null}
-              {activeAlert.kind === 'startup' ? <SetupStatus /> : null}
-              <div className="alert-banner__meta">
-                {activeAlert.kind === 'provider' && providerError ? (
-                  <>
-                    Captured {providerError.at || 'time unknown'} · Reason:{' '}
-                    {providerError.reason ? providerError.reason.replace(/_/g, ' ') : 'unspecified'} ·{' '}
-                  </>
+              <button type="button" className="btn-primary alert-banner__retry" onClick={onStartAgain}>
+                Try again
+              </button>
+              {/* Everything below is for whoever set the app up, not the person
+                  telling the story — so it stays folded away by default. */}
+              <details className="alert-banner__technical">
+                <summary>Technical details</summary>
+                {activeAlert.details.length ? (
+                  <div className="alert-banner__details">
+                    {activeAlert.details.map((detail, index) => (
+                      <div key={`${activeAlert.kind}-detail-${index}`}>• {detail}</div>
+                    ))}
+                  </div>
                 ) : null}
-                <a className="link" href={diagnosticsHref}>
-                  Open diagnostics
-                </a>
-              </div>
-              {activeAlert.kind === 'provider' && providerError?.snippet ? (
-                <pre className="alert-banner__snippet">{providerError.snippet}</pre>
-              ) : null}
+                {activeAlert.kind === 'startup' ? <SetupStatus /> : null}
+                <div className="alert-banner__meta">
+                  {activeAlert.kind === 'provider' && providerError ? (
+                    <>
+                      Captured {providerError.at || 'time unknown'} · Reason:{' '}
+                      {providerError.reason ? providerError.reason.replace(/_/g, ' ') : 'unspecified'} ·{' '}
+                    </>
+                  ) : null}
+                  <a className="link" href={diagnosticsHref}>
+                    Open diagnostics
+                  </a>
+                </div>
+                {activeAlert.kind === 'provider' && providerError?.snippet ? (
+                  <pre className="alert-banner__snippet">{providerError.snippet}</pre>
+                ) : null}
+              </details>
             </div>
           </div>
         ) : null}
