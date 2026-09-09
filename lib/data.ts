@@ -475,7 +475,11 @@ async function hydrateSessionsFromDatabase() {
       timestamp,
     })
     logDiagnostic('error', 'session:hydrate:failure', { env, error: describeError(err) })
-    throw err
+    // Hydration only warms the in-memory cache of past sessions. A failure here
+    // must not take down the whole app: the caller can still start a session and
+    // record turns, and any genuinely broken storage config will surface loudly
+    // on the write path instead. hydrationState.hydrated stays false so the next
+    // request retries, and the error is kept in hydrationDiagnostics for /api/health.
   } finally {
     hydrationState.attempted = true
     logBlobDiagnostic('log', 'session-hydration:finished', {
@@ -877,6 +881,45 @@ async function attemptSessionRecovery(sessionId: string): Promise<RememberedSess
   }
 }
 
+/**
+ * Turns live in the blob manifest, never in the Supabase session row. A session
+ * loaded from the database therefore arrives with an empty `turns` array, and
+ * appending to it would rewrite the manifest with only the new turn, destroying
+ * everything recorded earlier. Restore the prior turns before appending.
+ */
+async function restoreTurnsFromManifest(session: RememberedSession): Promise<RememberedSession> {
+  if (session.turns && session.turns.length) return session
+
+  const artifacts = session.artifacts || {}
+  const hasManifestPointer = Boolean(artifacts.session_manifest || artifacts.manifest)
+  const claimsPriorTurns = typeof session.total_turns === 'number' && session.total_turns > 0
+  if (!hasManifestPointer && !claimsPriorTurns) return session
+
+  try {
+    const lookup = await fetchSessionManifest(session.id)
+    const derived = lookup?.data
+      ? buildSessionFromManifest(lookup.data, session.id, session.created_at)
+      : null
+    const restoredTurns = derived?.turns ?? []
+    if (!restoredTurns.length) return session
+
+    const merged: RememberedSession = { ...session, turns: [...restoredTurns] }
+    mem.sessions.set(merged.id, merged)
+    logDiagnostic('log', 'session:append:turns-restored', {
+      sessionId: session.id,
+      restoredTurnCount: restoredTurns.length,
+    })
+    return merged
+  } catch (err) {
+    // Better to append to what we have than to fail the turn outright.
+    logDiagnostic('error', 'session:append:turns-restore-failed', {
+      sessionId: session.id,
+      error: describeError(err),
+    })
+    return session
+  }
+}
+
 export async function appendTurn(id: string, turn: Partial<Turn>) {
   const timestamp = diagnosticTimestamp()
   let s = mem.sessions.get(id)
@@ -924,6 +967,8 @@ export async function appendTurn(id: string, turn: Partial<Turn>) {
     ;(error as any).code = 'SESSION_NOT_FOUND'
     throw error
   }
+  s = await restoreTurnsFromManifest(s)
+
   const t: Turn = {
     id: uid(),
     role: (turn.role as any) || 'user',
@@ -965,16 +1010,28 @@ export async function appendTurn(id: string, turn: Partial<Turn>) {
     logDiagnostic('error', 'session:append:error', diagnosticPayload)
     throw err
   }
-  s.turns = nextTurns
-  s.total_turns = nextTurns.length
   if (manifestUrl) {
-    s.artifacts = {
-      ...(s.artifacts || {}),
+    // Apply to the snapshot itself: it is the object that gets stored below.
+    // (Mutating `s` here instead silently dropped the manifest pointer.)
+    snapshot.artifacts = {
+      ...(snapshot.artifacts || {}),
       session_manifest: manifestUrl,
       manifest: manifestUrl,
     }
   }
   mem.sessions.set(snapshot.id, snapshot)
+
+  if (manifestUrl) {
+    // Best effort: record the manifest pointer alongside the session row so
+    // history can find it after this instance is gone. The manifest is already
+    // durably written, so a failure here must not fail the turn.
+    upsertSessionRecord(snapshot).catch((err) =>
+      logDiagnostic('error', 'session:append:artifact-persist-failed', {
+        sessionId: snapshot.id,
+        error: describeError(err),
+      }),
+    )
+  }
   return t
 }
 
@@ -1571,7 +1628,7 @@ export function __dangerousResetMemoryState() {
   primerLoadPromises.clear()
 }
 
-async function _fetchSessionManifest(sessionId: string): Promise<ManifestLookup | null> {
+async function fetchSessionManifest(sessionId: string): Promise<ManifestLookup | null> {
   const timestamp = diagnosticTimestamp()
   logDiagnostic('log', 'session:manifest:fetch:start', { sessionId })
   try {

@@ -12,6 +12,10 @@ import { updateDigestAfterSession } from '@/lib/conversation-digest'
 
 import { z } from 'zod'
 
+// Long-running: transcription, storage writes and email can exceed the
+// platform default, which truncates the request mid-write.
+export const maxDuration = 60
+
 function summarizeLink(value: string | null | undefined, label: string, missing = 'unavailable') {
   if (!value) return `${label}: ${missing}`
   if (value.startsWith('data:')) return `${label}: [inline]`

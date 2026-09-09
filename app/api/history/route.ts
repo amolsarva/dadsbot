@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { listSessions, clearAllSessions, deleteSessionsByHandle } from '@/lib/data'
+import { listSessions, deleteSessionsByHandle } from '@/lib/data'
 import { primeNetlifyBlobContextFromHeaders } from '@/lib/blob'
 import { fetchStoredSessions } from '@/lib/history'
 import { generateSessionTitle, SummarizableTurn } from '@/lib/session-title'
@@ -202,10 +202,21 @@ export async function DELETE(request: Request) {
   primeNetlifyBlobContextFromHeaders(request.headers)
   const url = new URL(request.url)
   const handle = url.searchParams.get('handle')
-  if (handle) {
-    const result = await deleteSessionsByHandle(handle)
-    return NextResponse.json({ ok: true, deleted: result.deleted, items: [] })
+
+  // A missing handle used to fall through to clearAllSessions(), wiping EVERY
+  // user's sessions from a single unauthenticated request. There is no longer a
+  // global branch: deletion must name whose history it is deleting.
+  if (!handle || !handle.trim()) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'handle_required',
+        message: 'Specify ?handle= to delete a single account’s history. Bulk deletion is not available over HTTP.',
+      },
+      { status: 400 },
+    )
   }
-  await clearAllSessions()
-  return NextResponse.json({ ok: true, items: [] })
+
+  const result = await deleteSessionsByHandle(handle)
+  return NextResponse.json({ ok: true, deleted: result.deleted, items: [] })
 }

@@ -68,11 +68,11 @@ export function SettingsView({ userHandle }: SettingsViewProps) {
         <h2 className="page-heading">Settings</h2>
         {activeHandle && (
           <p className="page-subtext">
-            Active account: <span className="highlight">@{activeHandle}</span>
+            These settings are for <span className="highlight">{activeHandle}</span>.
           </p>
         )}
         <div className="settings-field">
-          <label htmlFor="notify-email">Default notify email</label>
+          <label htmlFor="notify-email">Where should we send your stories?</label>
           <input id="notify-email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <label className="settings-checkbox">
@@ -81,7 +81,7 @@ export function SettingsView({ userHandle }: SettingsViewProps) {
             checked={sendEmails}
             onChange={(e) => setSendEmails(e.target.checked)}
           />
-          <span>Send session summaries by email</span>
+          <span>Email me a copy after each conversation</span>
         </label>
         <div className="settings-actions">
           <button

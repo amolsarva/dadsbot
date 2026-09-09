@@ -173,18 +173,30 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
   const notes: string[] = []
 
   let supabaseSessions: Awaited<ReturnType<typeof listSessions>> = []
+  let supabaseAvailable = true
   try {
     supabaseSessions = await listSessions(normalizedHandle)
   } catch (err) {
+    supabaseAvailable = false
     notes.push(`Supabase sessions unavailable: ${err instanceof Error ? err.message : 'unknown error'}`)
   }
 
   let storedSessions: StoredSession[] = []
+  let storageAvailable = true
   try {
     const storedResult = await fetchStoredSessions({ handle: normalizedHandle ?? null, limit: 250 })
     storedSessions = storedResult.items
   } catch (err) {
+    storageAvailable = false
     notes.push(`Stored sessions unavailable: ${err instanceof Error ? err.message : 'unknown error'}`)
+  }
+
+  // Deleting is only safe when both sources answered. If either is down, every
+  // session looks empty and a single transient outage would wipe real
+  // recordings, so repair metadata this run and leave removals for a later one.
+  const deletionsAllowed = supabaseAvailable && storageAvailable
+  if (!deletionsAllowed) {
+    notes.push('Skipping session deletions: a data source was unavailable, so emptiness cannot be trusted.')
   }
 
   const combined = buildCombinedSessions(supabaseSessions, storedSessions)
@@ -212,6 +224,7 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
       .filter((turn): turn is NonEmptyTurn => Boolean(turn))
 
     let hasUserTurns = hasMeaningfulUserTurn(digestTurns)
+    let lookupFailed = false
     if (!digestTurns.length || !hasUserTurns) {
       let storedFallback = session.stored
       if (!storedFallback) {
@@ -220,8 +233,13 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
           if (storedFallback) {
             session.stored = storedFallback
           }
-        } catch {
+        } catch (err) {
+          // A failed lookup is not evidence the session is empty.
           storedFallback = undefined
+          lookupFailed = true
+          notes.push(
+            `Stored lookup failed for ${session.id}: ${err instanceof Error ? err.message : 'unknown error'}`,
+          )
         }
       }
       if (storedFallback) {
@@ -252,7 +270,7 @@ export async function runHistoryFixer(options: { handle?: string | null } = {}):
     const shouldDeleteStaleInProgress =
       staleInProgress && (session.totalTurns <= 1 || !hasUserTurns)
 
-    if (shouldDeleteEmpty || shouldDeleteStaleInProgress) {
+    if ((shouldDeleteEmpty || shouldDeleteStaleInProgress) && deletionsAllowed && !lookupFailed) {
       if (session.origin === 'supabase') {
         await deleteSession(session.id).catch((err) => {
           notes.push(`Failed to delete session ${session.id}: ${err instanceof Error ? err.message : 'unknown error'}`)

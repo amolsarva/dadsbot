@@ -76,10 +76,26 @@ export async function recordUntilSilence(options) {
   const proc = ctx.createScriptProcessor(2048, 1, 1)
   output.connect(proc)
   proc.connect(ctx.destination)
-  const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-    ? 'audio/webm;codecs=opus'
-    : 'audio/webm'
-  const rec = new MediaRecorder(stream, { mimeType: mime })
+  // Safari/iOS supports neither webm nor ogg, so the old webm-only choice threw
+  // NotSupportedError from the MediaRecorder constructor and recording failed
+  // outright on iPhone. Negotiate against what the browser actually reports and
+  // fall back to its own default rather than forcing a container on it.
+  const MIME_CANDIDATES = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/ogg;codecs=opus',
+    'audio/mp4;codecs=mp4a.40.2',
+    'audio/mp4',
+  ]
+  const supportedMime =
+    typeof MediaRecorder.isTypeSupported === 'function'
+      ? MIME_CANDIDATES.find((candidate) => MediaRecorder.isTypeSupported(candidate))
+      : undefined
+  const rec = supportedMime
+    ? new MediaRecorder(stream, { mimeType: supportedMime })
+    : new MediaRecorder(stream)
+  // Whatever the browser actually chose is what the bytes are; report that.
+  const mime = (rec.mimeType && rec.mimeType.length ? rec.mimeType : supportedMime) || 'audio/webm'
   const chunks = []
   rec.ondataavailable = (e) => {
     if (e.data && e.data.size) chunks.push(e.data)
@@ -105,7 +121,7 @@ export async function recordUntilSilence(options) {
       if (done) return
       const blob = new Blob(chunks, { type: mime })
       const durationMs = started ? Math.max(0, performance.now() - startedAt) : 0
-      finish({ blob, durationMs, started, stopReason })
+      finish({ blob, durationMs, started, stopReason, mimeType: mime })
     }
 
     proc.onaudioprocess = () => {
@@ -118,7 +134,7 @@ export async function recordUntilSilence(options) {
       if (!started) {
         if (shouldForceStop()) {
           stopReason = 'force_stop_before_start'
-          finish({ blob: new Blob([], { type: mime }), durationMs: 0, started: false, stopReason })
+          finish({ blob: new Blob([], { type: mime }), durationMs: 0, started: false, stopReason, mimeType: mime })
           return
         }
         if (level >= startRatio) {
@@ -145,7 +161,7 @@ export async function recordUntilSilence(options) {
         } else if (shouldForceStop()) {
           stopReason = 'force_stop_after_start'
           if (rec.state === 'recording') rec.stop()
-          else finish({ blob: new Blob(chunks, { type: mime }), durationMs: elapsed, started, stopReason })
+          else finish({ blob: new Blob(chunks, { type: mime }), durationMs: elapsed, started, stopReason, mimeType: mime })
         } else if (elapsed >= minDurationMs && quietStreak >= quietStreakThreshold && silenceElapsed >= silenceMs + graceMs) {
           stopReason = 'silence'
           rec.stop()

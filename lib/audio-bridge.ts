@@ -6,6 +6,21 @@ export type RecordResult = {
   durationMs: number
   started: boolean
   stopReason: string
+  /** The container the browser actually recorded (webm on Chrome, mp4 on iOS). */
+  mimeType?: string
+}
+
+/**
+ * Maps a MediaRecorder mime type onto the short format label the ask-audio API
+ * expects. Sending the wrong label makes the provider decode the bytes as the
+ * wrong container, which fails silently on Safari.
+ */
+export function formatFromMimeType(mimeType?: string | null): string {
+  const value = (mimeType || '').toLowerCase()
+  if (value.includes('mp4') || value.includes('m4a') || value.includes('aac')) return 'mp4'
+  if (value.includes('ogg')) return 'ogg'
+  if (value.includes('wav')) return 'wav'
+  return 'webm'
 }
 
 async function getModule(): Promise<any> {

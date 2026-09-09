@@ -104,15 +104,15 @@ requesting `handle=b` returns 403. Add an integration test for both.
 
 ### P0-3 · Make destructive operations impossible to trigger by accident
 
-- [ ] `app/api/history/route.ts` — `DELETE` with no `handle` calls `clearAllSessions()`,
+- [x] `app/api/history/route.ts` — `DELETE` with no `handle` calls `clearAllSessions()`,
       wiping **every user's** sessions. Require an explicit handle; delete the global
       branch entirely. `clearAllSessions` should only be reachable from a script, not HTTP.
-- [ ] `app/api/blob/[...path]/route.ts` — `GET`, `PUT` and `DELETE` accept arbitrary
+- [x] `app/api/blob/[...path]/route.ts` — `GET`, `PUT` and `DELETE` accept arbitrary
       storage paths with no auth. Anyone can read any family's audio, overwrite a memory
       primer under `memory/primers/`, or delete the archive object by object. Put it behind
       the P0-2 middleware and scope the path to the caller's handle, or replace it with
       signed expiring URLs issued per artifact.
-- [ ] `app/history/history-view.tsx:318` — `handleClearAll` fires with no confirmation.
+- [x] `app/history/history-view.tsx:318` — `handleClearAll` fires with no confirmation.
       Add a type-the-handle-to-confirm dialog.
 - [ ] Make deletion soft: add `deleted_at` to `public.sessions` in
       `docs/supabase-schema.sql`, filter it out of reads, and keep blobs for 30 days.
@@ -130,17 +130,17 @@ Three independent ceilings, all of which bite exactly when someone tells a good 
       a serverless request body at 4.5 MB and base64 adds 33%. A long interview loses its
       master recording at finalize. Upload directly to Supabase Storage from the browser with
       a signed URL; send the app only the object key.
-- [ ] **iOS container mismatch.** `lib/session-recorder.ts:11` negotiates only
+- [x] **iOS container mismatch.** `lib/session-recorder.ts:11` negotiates only
       `audio/webm` and `audio/ogg` — no `audio/mp4`, which is what Safari records. Then
       `app/page.tsx:1453` hardcodes `format: 'webm'` regardless of what the recorder chose,
       so Gemini receives mp4 bytes labelled webm. Add `audio/mp4` to `SUPPORTED_MIME_TYPES`
       and pass `recording.mimeType` through instead of the literal.
-- [ ] **Function timeout.** No route exports `maxDuration`, so every one runs on the
+- [x] **Function timeout.** No route exports `maxDuration`, so every one runs on the
       platform default. Transcribing a two-minute answer with the primer and digest
       prepended will not reliably finish. Set `maxDuration` explicitly on
       `app/api/ask-audio/route.ts`, `app/api/session/[id]/{intro,turn,finalize}/route.ts`
       and `app/api/finalize-session/route.ts`.
-- [ ] **No timeout on the upstream call.** The Gemini `fetch` in `ask-audio` has no
+- [x] **No timeout on the upstream call.** The Gemini `fetch` in `ask-audio` has no
       `AbortController`; a slow upstream hangs until the platform kills the function. Add
       one with a budget below `maxDuration`, and fall back to the existing fallback copy.
 
@@ -150,14 +150,14 @@ not close this item on a desktop Chrome test.
 
 ### P0-5 · Stop burning money on every page view
 
-- [ ] `ServiceStatusGrid` is rendered twice on the Interview tab — `components/tabs/chat-tab.tsx:26`
+- [x] `ServiceStatusGrid` is rendered twice on the Interview tab — `components/tabs/chat-tab.tsx:26`
       and `app/page.tsx:2553`. Delete one. (The duplicate is visible in the UI as two
       SERVICES panels.)
-- [ ] The grid pings `/api/diagnostics/google` and `/api/diagnostics/openai` on mount, both
+- [x] The grid pings `/api/diagnostics/google` and `/api/diagnostics/openai` on mount, both
       of which make **real billable model calls**. That is four paid inferences per home
       page view. Replace with a cached server-side check that does not invoke a model, or
       move the grid to `/diagnostics` where an operator asks for it deliberately.
-- [ ] `app/api/tts/route.ts` accepts `z.string().min(1)` with no maximum and no auth —
+- [x] `app/api/tts/route.ts` accepts `z.string().min(1)` with no maximum and no auth —
       unbounded OpenAI billing from a single caller. Add `.max(2000)` and put it behind P0-2.
 - [ ] There is no rate limiting anywhere in the app. Add a simple per-handle limit on
       `ask-audio`, `tts` and `upload`.
@@ -174,11 +174,12 @@ should have been a union. They are fixed. The reason they got there is not.
 `com.amol.dadsbot-auto-push` commits and pushes whatever is on disk every 60 seconds (see
 `AUTO-GIT-INSTRUCTIONS-FOR-AMOL.md`), and `.github/workflows` never runs `ci-check`.
 
-- [ ] Add a workflow running `npm run ci-check && npm test` on every push and PR. Make it a
-      required status check on `main`.
+- [x] Add a workflow running lint, type-check, tests and build on every push and PR
+      (`.github/workflows/ci.yml`). Making it a *required* status check is a repo
+      setting a human still has to flip.
 - [ ] Teach `/usr/local/bin/push_dadsbot_if_dirty.sh` to run `npm run ci-check` and refuse
       to push on failure. A dirty working tree is better than a broken `main`.
-- [ ] Make the tests hermetic. 12 of 30 fail on a clean checkout because they read live
+- [x] Make the tests hermetic. 12 of 30 fail on a clean checkout because they read live
       `SUPABASE_*` env vars — and the failing suite is `tests/data.test.ts`, the
       memory-continuity tests covering the product's central promise. Inject a fake store
       instead of reaching for `process.env`.
@@ -219,7 +220,7 @@ SUPABASE_SESSIONS_TABLE to the correct Supabase table…"*
 - [ ] `app/settings/page.tsx` throws when `NEXT_PUBLIC_DEFAULT_NOTIFY_EMAIL` is unset,
       white-screening the route with "Application error: a client-side exception has
       occurred". Add an error boundary and a sensible default.
-- [ ] The footer shows "missing — commit message unavailable" to end users. Hide it when
+- [x] The footer shows "missing — commit message unavailable" to end users. Hide it when
       metadata is absent.
 
 ### P1-3 · Separate the operator surface from the consumer surface
@@ -265,12 +266,12 @@ process holds every user's transcripts in memory at once. Works for a single-use
 
 `app/api/ask-audio/route.ts` has two paths that corrupt or silently drop a turn:
 
-- [ ] On an unstructured provider response it returns `reply: txt` **and**
+- [x] On an unstructured provider response it returns `reply: txt` **and**
       `transcript: txt` — writing the assistant's text into the user's transcript field and
       corrupting the permanent record. Keep the transcript empty rather than wrong.
-- [ ] On exception it returns `ok: true` with an empty transcript, so the UI advances and
+- [x] On exception it returns `ok: true` with an empty transcript, so the UI advances and
       the user's turn is lost with no error shown. Return a failure the client can retry.
-- [ ] `GOOGLE_API_KEY` is passed as a URL query parameter, so it lands in any upstream
+- [x] `GOOGLE_API_KEY` is passed as a URL query parameter, so it lands in any upstream
       access log. Send it as the `x-goog-api-key` header instead.
 
 ---
@@ -280,7 +281,30 @@ process holds every user's transcripts in memory at once. Works for a single-use
 Add anything discovered mid-task here rather than expanding a PR. Include file:line and
 how you reproduced it.
 
-- _(nothing yet)_
+- **`lib/data.ts` `appendTurn` destroyed prior turns.** Turns live only in the blob
+  manifest, never in the Supabase row, so a session hydrated from the database
+  arrived with `turns: []` and `persistSessionSnapshot` rewrote the manifest with
+  only the new turn. Fires on any serverless cold start mid-interview. Fixed by
+  restoring turns from the manifest before appending (`restoreTurnsFromManifest`),
+  reusing the orphaned `_fetchSessionManifest` helper. Covered by the
+  "rehydrates a stored session manifest" test, which failed before the fix.
+- **`appendTurn` dropped the manifest pointer.** It assigned `session_manifest`
+  onto `s` and then stored `snapshot` — an object built before the assignment —
+  so `artifacts.session_manifest` was never persisted. This is a large part of why
+  the history fixer had to patch artifacts at all.
+- **The history fixer deleted on incomplete data.** If the blob listing failed,
+  every session looked empty and the fixer permanently deleted real recordings.
+  It now refuses to delete unless both sources answered.
+- **Cache hydration failure was fatal.** `hydrateSessionsFromDatabase` only warms
+  an in-memory cache, but threw, so one transient Supabase read error took the
+  whole app down. Now non-fatal and retried; write failures stay fatal.
+- **Elderly-usability pass (P1-1/P1-2/P1-3 adjacent).** The `@media (max-width:900px)`
+  rule set `flex-direction: column` on `.home-shell`, which is a **grid** — so it did
+  nothing and the 260px sidebar column survived onto phones. Collapsed the track,
+  raised the type scale (nothing user-facing below 14px), lifted `--muted` to clear
+  7:1, enlarged the primary control, gave every button a 48px target, rewrote hero
+  and error copy in plain language, folded technical detail behind a disclosure, and
+  hid the History Fixer / Database Metrics panels behind `?operator=1`.
 
 ---
 

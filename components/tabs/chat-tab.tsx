@@ -1,11 +1,9 @@
 'use client'
 
 import { TopicProgress } from '@/components/topic-progress'
-import { ServiceStatusGrid } from '@/components/service-status-grid'
 
 interface ChatTabProps {
   normalizedHandle: string | null
-  diagnosticsHref: string
 }
 
 /**
@@ -13,17 +11,16 @@ interface ChatTabProps {
  *
  * The voice recording widget is now in a FloatingVoiceRecorder component
  * that stays fixed at the top of the screen and doesn't unmount when
- * switching tabs. This tab just shows the interview progress and status.
+ * switching tabs. This tab just shows the interview progress.
+ *
+ * The services panel lives once in the page footer (app/page.tsx); rendering it
+ * here as well put two identical SERVICES panels on the Interview tab.
  */
-export function ChatTab({ normalizedHandle, diagnosticsHref }: ChatTabProps) {
+export function ChatTab({ normalizedHandle }: ChatTabProps) {
   return (
     <div className="chat-tab">
       <div className="panel-card topic-progress-card">
         <TopicProgress userHandle={normalizedHandle} />
-      </div>
-
-      <div className="panel-card">
-        <ServiceStatusGrid diagnosticsHref={diagnosticsHref} />
       </div>
     </div>
   )
