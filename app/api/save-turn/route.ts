@@ -4,6 +4,10 @@ import { primeNetlifyBlobContextFromHeaders } from '@/lib/blob'
 import { jsonErrorResponse } from '@/lib/api-error'
 import { assertTurnsTableConfigured, describeTurnEnv, saveTurn, uploadAudio, uploadTurnManifest } from '@/lib/turn-service'
 
+// Long-running: transcription, storage writes and email can exceed the
+// platform default, which truncates the request mid-write.
+export const maxDuration = 60
+
 const ROUTE_NAME = 'app/api/save-turn'
 
 function serializeError(error: unknown) {

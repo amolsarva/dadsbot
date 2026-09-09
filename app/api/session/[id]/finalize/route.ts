@@ -3,6 +3,10 @@ import { finalizeSession } from '@/lib/data'
 import { primeNetlifyBlobContextFromHeaders } from '@/lib/blob'
 import { z } from 'zod'
 
+// Long-running: transcription, storage writes and email can exceed the
+// platform default, which truncates the request mid-write.
+export const maxDuration = 60
+
 const schema = z.object({
   clientDurationMs: z.number().nonnegative().default(0),
   sessionAudioUrl: z.string().min(1).optional(),

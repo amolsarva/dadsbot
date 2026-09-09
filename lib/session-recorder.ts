@@ -8,11 +8,16 @@ type PlaybackResult = {
   durationMs: number
 }
 
+// Safari/iOS cannot produce webm or ogg — MediaRecorder there emits audio/mp4.
+// Without an mp4 candidate the recorder fell through to the browser default and
+// the resulting bytes were then mislabelled downstream.
 const SUPPORTED_MIME_TYPES = [
   'audio/webm;codecs=opus',
   'audio/webm',
   'audio/ogg;codecs=opus',
   'audio/ogg',
+  'audio/mp4;codecs=mp4a.40.2',
+  'audio/mp4',
 ]
 
 export class SessionRecorder {

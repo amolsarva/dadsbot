@@ -3,6 +3,10 @@ import { appendTurn, diagnosticEnvSummary, diagnosticTimestamp } from '@/lib/dat
 import { primeNetlifyBlobContextFromHeaders } from '@/lib/blob'
 import { z } from 'zod'
 
+// Long-running: transcription, storage writes and email can exceed the
+// platform default, which truncates the request mid-write.
+export const maxDuration = 60
+
 function describeApiError(err: unknown) {
   if (err instanceof Error) return { message: err.message, name: err.name, stack: err.stack }
   if (err && typeof err === 'object') return { ...(err as any), message: (err as any).message ?? String(err) }

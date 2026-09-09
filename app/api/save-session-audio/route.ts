@@ -5,6 +5,10 @@ import { mergeSessionArtifacts } from '@/lib/data'
 import { jsonErrorResponse } from '@/lib/api-error'
 import { logBlobDiagnostic } from '@/utils/blob-env'
 
+// Long-running: transcription, storage writes and email can exceed the
+// platform default, which truncates the request mid-write.
+export const maxDuration = 60
+
 const ROUTE_NAME = 'app/api/save-session-audio'
 
 function serializeError(error: unknown) {

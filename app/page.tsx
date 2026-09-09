@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { useInterviewMachine } from '@/lib/machine'
-import { calibrateRMS, recordUntilSilence, blobToBase64 } from '@/lib/audio-bridge'
+import { calibrateRMS, recordUntilSilence, blobToBase64, formatFromMimeType } from '@/lib/audio-bridge'
 import { createSessionRecorder, SessionRecorder } from '@/lib/session-recorder'
 import { SummarizableTurn } from '@/lib/session-title'
 import { detectCompletionIntent } from '@/lib/intents'
@@ -1348,6 +1348,9 @@ export function Home({ userHandle }: { userHandle?: string }) {
       let recDuration = 0
       let baselineToUse = baselineRef.current ?? DEFAULT_BASELINE
       let recMeta = { started: false, stopReason: 'unknown' as string }
+      // Must reflect the container the browser actually produced — Safari records
+      // mp4, and labelling those bytes 'webm' made transcription fail on iPhone.
+      let recFormat = 'webm'
 
       // Only calibrate on first turn or if we don't have a baseline yet
       // Skip calibration on subsequent turns to reduce lag
@@ -1389,11 +1392,13 @@ export function Home({ userHandle }: { userHandle?: string }) {
         })
         b64 = await blobToBase64(rec.blob)
         recDuration = rec.durationMs || 0
+        recFormat = formatFromMimeType(rec.mimeType || rec.blob?.type)
         recMeta = { started: Boolean(rec.started), stopReason: rec.stopReason || 'unknown' }
       } catch {
         const silent = new Blob([new Uint8Array(1)], { type: 'audio/webm' })
         b64 = await blobToBase64(silent)
         recDuration = 500
+        recFormat = 'webm'
         recMeta = { started: false, stopReason: 'record_error' }
       }
       const manualStopDuringTurn = manualStopRef.current
@@ -1450,7 +1455,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
         const res = await fetch('/api/ask-audio', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ audio: b64, format: 'webm', sessionId, turn: turn + 1 }),
+          body: JSON.stringify({ audio: b64, format: recFormat, sessionId, turn: turn + 1 }),
         })
         askResStatus = res.status
         const rawText = await res.text()
@@ -2554,7 +2559,7 @@ export function Home({ userHandle }: { userHandle?: string }) {
         <section className="home-content">
           <div className="tab-content">
             {activeTab === 'chat' && (
-              <ChatTab normalizedHandle={normalizedHandle} diagnosticsHref={diagnosticsHref} />
+              <ChatTab normalizedHandle={normalizedHandle} />
             )}
             {activeTab === 'history' && (
               <HistoryTab handle={normalizedHandle} currentSessionId={sessionId} />

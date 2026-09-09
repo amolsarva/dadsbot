@@ -17,6 +17,10 @@ import {
 import { resolveGoogleModel } from '@/lib/google'
 import { getDigest, formatDigestForContext } from '@/lib/conversation-digest'
 
+// Long-running: transcription, storage writes and email can exceed the
+// platform default, which truncates the request mid-write.
+export const maxDuration = 60
+
 const INTRO_SYSTEM_PROMPT = `You are DadsBot, a warm and curious conversation partner helping someone capture their family stories and life memories.
 
 CRITICAL: If a "CONVERSATION HISTORY DIGEST" is provided below, you MUST use it. This is what you know about this person from past conversations. Reference specific details — names, places, stories they told you. Show that you remember.

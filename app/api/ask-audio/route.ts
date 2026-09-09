@@ -18,6 +18,34 @@ import {
   getAskProviderExceptionPrompt,
 } from '@/lib/fallback-texts'
 
+export const runtime = 'nodejs'
+
+// Transcribing a long answer with the primer and digest prepended does not
+// reliably finish inside the platform default, which silently truncated turns.
+export const maxDuration = 60
+
+// Kept below maxDuration so the fallback question still has time to be returned.
+const UPSTREAM_TIMEOUT_MS = 45_000
+
+// Browsers disagree on container: Chrome records webm, Safari/iOS records mp4.
+// Resolve through an allowlist so the value cannot be interpolated straight into
+// the mime string, and so an unknown label degrades to the common case.
+const AUDIO_MIME_TYPES: Record<string, string> = {
+  webm: 'audio/webm',
+  ogg: 'audio/ogg',
+  mp4: 'audio/mp4',
+  m4a: 'audio/mp4',
+  aac: 'audio/aac',
+  mp3: 'audio/mp3',
+  wav: 'audio/wav',
+  flac: 'audio/flac',
+}
+
+function audioMimeTypeForFormat(format: unknown): string {
+  const key = typeof format === 'string' ? format.trim().toLowerCase() : ''
+  return AUDIO_MIME_TYPES[key] || AUDIO_MIME_TYPES.webm
+}
+
 const SYSTEM_PROMPT = `You are DadsBot, a warm and curious conversational partner helping someone share their family stories and life memories.
 
 Your approach: Be a CURIOUS FRIEND who actively guides the conversation while staying responsive.
@@ -357,7 +385,7 @@ export async function POST(req: NextRequest) {
       parts.push({ text: `Recent remembered detail: ${memory.highlightDetail}` })
     }
     if (trimmedAudio.length) {
-      parts.push({ inlineData: { mimeType: `audio/${format}`, data: trimmedAudio } })
+      parts.push({ inlineData: { mimeType: audioMimeTypeForFormat(format), data: trimmedAudio } })
     }
     if (trimmedText.length) {
       parts.push({ text: trimmedText })
@@ -372,14 +400,30 @@ export async function POST(req: NextRequest) {
       turn: requestTurn,
     })
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${googleApiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ role: 'user', parts }] }),
-      },
-    )
+    // Budget the upstream call below the function timeout. Without this a slow
+    // provider hangs until the platform kills the function, and the caller gets
+    // nothing back at all rather than the fallback question.
+    const upstreamController = new AbortController()
+    const upstreamTimeout = setTimeout(() => upstreamController.abort(), UPSTREAM_TIMEOUT_MS)
+    let response: Response
+    try {
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            // Sent as a header, not a query parameter: a key in the URL lands in
+            // every upstream access log and proxy trace.
+            'x-goog-api-key': googleApiKey,
+          },
+          body: JSON.stringify({ contents: [{ role: 'user', parts }] }),
+          signal: upstreamController.signal,
+        },
+      )
+    } finally {
+      clearTimeout(upstreamTimeout)
+    }
     const json = await response.json().catch(() => ({}))
     const txt =
       json?.candidates?.[0]?.content?.parts?.map((part: any) => part?.text || '').filter(Boolean).join('\n') || ''
@@ -478,7 +522,10 @@ export async function POST(req: NextRequest) {
       })
       return NextResponse.json(fallback)
     }
-    const completion = detectCompletionIntent(txt || trimmedText || '')
+    // Intent must be read from what the storyteller said, not from `txt` — on an
+    // unstructured response that is the assistant's prose, and an assistant
+    // sentence like "sounds like a good place to stop" would end the session.
+    const completion = detectCompletionIntent(trimmedText || '')
     const fallbackReason = !response.ok
       ? 'provider_error'
       : txt.trim().length
@@ -492,7 +539,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ...fallback,
       reply: txt || fallback.reply,
-      transcript: txt || fallback.transcript || '',
+      // NEVER fall back to `txt` here. On an unstructured response `txt` is the
+      // assistant's own prose; writing it into `transcript` puts words in the
+      // storyteller's mouth and corrupts the permanent record. An empty
+      // transcript is recoverable, a wrong one is not.
+      transcript: fallback.transcript || '',
       end_intent: fallback.end_intent || completion.shouldStop,
       debug: {
         ...debugBase,
@@ -504,22 +555,34 @@ export async function POST(req: NextRequest) {
       },
     })
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Unknown error during ask-audio provider execution.'
-      logDiagnostic('error', 'ask-audio:provider:exception', { message })
-      return NextResponse.json<AskAudioResponse>({
-        ok: true,
-        provider,
-        reply: getAskProviderExceptionPrompt(),
-        transcript: '',
-        end_intent: false,
-        debug: {
-          sessionId: requestSessionId ?? null,
-          turn: requestTurn,
+      const aborted = e instanceof Error && e.name === 'AbortError'
+      const message = aborted
+        ? `Provider request exceeded ${UPSTREAM_TIMEOUT_MS}ms and was aborted.`
+        : e instanceof Error
+          ? e.message
+          : 'Unknown error during ask-audio provider execution.'
+      logDiagnostic('error', 'ask-audio:provider:exception', { message, aborted })
+      // Report a failure rather than ok:true with an empty transcript. The old
+      // shape let the client advance to the next question while the answer that
+      // was just spoken was silently dropped and never recorded.
+      return NextResponse.json<AskAudioResponse>(
+        {
+          ok: false,
           provider,
-          usedFallback: true,
-          reason: 'exception',
-          memory: debugMemory,
+          reply: getAskProviderExceptionPrompt(),
+          transcript: '',
+          end_intent: false,
+          debug: {
+            sessionId: requestSessionId ?? null,
+            turn: requestTurn,
+            provider,
+            usedFallback: true,
+            reason: aborted ? 'provider_timeout' : 'exception',
+            providerError: message,
+            memory: debugMemory,
+          },
         },
-      })
+        { status: 502 },
+      )
   }
 }
