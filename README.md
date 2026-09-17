@@ -28,6 +28,47 @@ DadsBot is a Next.js 14 app that captures long-form oral histories with warm, bi
   - **AWS Amplify Hosting + S3:** update `lib/blob.ts` for S3 and configure IAM roles explicitly.
   - **Fly.io + S3-compatible storage:** bring your own CI/CD; ensure storage env vars exist before boot.
 
+## Access gate
+
+The app sits behind a single shared keyword. Anyone without a valid cookie is
+sent to `/enter`; API routes answer `401`.
+
+- The word is **case-insensitive** and whitespace is trimmed, so `Sarva`,
+  `sarva` and `  SARVA  ` all work.
+- Only a SHA-256 of the word is committed (`lib/access-gate.ts`). Change it by
+  setting `ACCESS_KEYWORD_HASH` to a new
+  `echo -n "<word>" | shasum -a 256` digest — no code change needed.
+- The signed cookie lasts 180 days on purpose: re-typing a password is a real
+  barrier for an older storyteller. `ACCESS_COOKIE_SECRET` is optional; without
+  it the signing key is derived from the keyword hash.
+- `/enter`, `/api/access`, `/api/health`, `/sounds/*` and `/logo.svg` stay
+  reachable without the cookie so the door, uptime checks and the recorder's
+  sounds keep working.
+
+**This is a front door, not a security boundary.** The hash is of an ordinary
+word in a readable repo, so anyone who wants the word can recover it. Real
+per-person access is still open as P0-2 in `AI-TODO.md`.
+
+## ⚠️ Reminder: re-check API key usage
+
+`/api/diagnostics/env` disclosed raw environment variable values on a public URL
+from the Mar 24 deploy until it was patched on 7 Sep 2026. The keys were **not
+rotated** — the call was that usage showed no sign of anyone else using them,
+and Supabase auto-revokes service keys it detects leaked.
+
+Worth re-checking periodically, because the evidence so far does not cover
+everything:
+
+- [ ] **OpenAI** and **Google** usage dashboards — these were checked and were
+      clean. They would reveal anyone spending against those two keys.
+- [ ] **Supabase → Logs → API** — *not yet reviewed, and this is the gap.* A
+      stolen `SUPABASE_SERVICE_ROLE_KEY` used to **read** transcripts and audio
+      costs nothing and shows up in no billing dashboard. Supabase's request
+      logs are the only place that exfiltration would be visible.
+
+If anything looks unfamiliar, rotate `SUPABASE_SERVICE_ROLE_KEY`,
+`SUPABASE_ANON_KEY`, `GOOGLE_API_KEY`, `OPENAI_API_KEY` and `SENDGRID_API_KEY`.
+
 ## Environment variables
 - **Supabase storage:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET` (validated in `utils/blob-env.ts`).
 - **Supabase tables:** `SUPABASE_SESSIONS_TABLE` and `SUPABASE_TURNS_TABLE` are both **required** — neither has a default, and `/api/save-turn` rejects every turn when the turns table is unset. Client diagnostics expect `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET`, and `NEXT_PUBLIC_SUPABASE_TURNS_TABLE`.
