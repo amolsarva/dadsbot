@@ -2591,3 +2591,87 @@ input[type="checkbox"] {
 .history-tab__profile-section {
   margin-bottom: 40px;
 }
+
+/* ---- Keyword front door (/enter) ----------------------------------------
+   Sized for the same audience as the recorder: large type, a large field and
+   a full-width button that is easy to hit. */
+.enter-main {
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  box-sizing: border-box;
+}
+
+.enter-card {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+}
+
+.enter-title {
+  margin: 0;
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.enter-lede {
+  margin: 0;
+  font-size: var(--font-base);
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.enter-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.enter-form__label {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.enter-form__input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 56px;
+  padding: 12px 14px;
+  font-size: 20px;
+  border-radius: 10px;
+  border: 2px solid var(--border);
+  background: rgba(255, 255, 255, 0.95);
+  color: #0a1428;
+}
+
+.enter-form__input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.35);
+}
+
+.enter-form__submit {
+  min-height: 56px;
+  font-size: 18px;
+  font-weight: 700;
+  width: 100%;
+}
+
+.enter-form__error {
+  margin: 0;
+  font-size: var(--font-sm);
+  color: #fca5a5;
+}
+
+.enter-help {
+  margin: 0;
+  font-size: var(--font-sm);
+  color: var(--muted);
+}
