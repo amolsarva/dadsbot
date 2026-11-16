@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { primeNetlifyBlobContextFromHeaders, putBlobFromBuffer } from '@/lib/blob'
+import { describeStoredBlob, primeNetlifyBlobContextFromHeaders, putBlobFromBuffer } from '@/lib/blob'
+import { isSafeSessionId, isSessionAudioPathFor } from '@/lib/session-audio-path'
 import { mergeSessionArtifacts } from '@/lib/data'
 import { jsonErrorResponse } from '@/lib/api-error'
 import { logBlobDiagnostic } from '@/utils/blob-env'
@@ -39,12 +40,21 @@ function logRouteEvent(
   })
 }
 
-const schema = z.object({
-  sessionId: z.string().min(1),
-  audio: z.string().min(1),
-  mime: z.string().default('audio/webm'),
-  duration_ms: z.number().nonnegative().optional(),
-})
+// Two ways in. `path` is the normal one: the browser has already uploaded the
+// recording straight to storage (see /api/session-audio/upload-url) and is
+// telling us where. `audio` is the older inline base64 form, kept as a fallback
+// for short recordings when the direct upload is unavailable.
+const schema = z
+  .object({
+    sessionId: z.string().min(1),
+    audio: z.string().min(1).optional(),
+    path: z.string().min(1).optional(),
+    mime: z.string().default('audio/webm'),
+    duration_ms: z.number().nonnegative().optional(),
+  })
+  .refine((value) => Boolean(value.audio) !== Boolean(value.path), {
+    message: 'Provide exactly one of audio or path',
+  })
 
 export async function POST(request: NextRequest) {
   logRouteEvent('log', 'save-session-audio:request:start', {
@@ -64,7 +74,37 @@ export async function POST(request: NextRequest) {
     logRouteEvent('log', 'save-session-audio:request:body-parsed', {
       keys: body && typeof body === 'object' ? Object.keys(body) : null,
     })
-    const { sessionId, audio, mime, duration_ms } = schema.parse(body)
+    const { sessionId, audio, path, mime, duration_ms } = schema.parse(body)
+    if (!isSafeSessionId(sessionId)) {
+      return NextResponse.json({ ok: false, error: 'invalid_session_id' }, { status: 400 })
+    }
+
+    if (path) {
+      if (!isSessionAudioPathFor(sessionId, path)) {
+        return NextResponse.json({ ok: false, error: 'invalid_audio_path' }, { status: 400 })
+      }
+      // Trust storage, not the caller: only record the artifact if it is there.
+      const stored = await describeStoredBlob(path)
+      if (!stored || stored.size === 0) {
+        logRouteEvent('error', 'save-session-audio:direct:missing-object', { sessionId, path })
+        return NextResponse.json({ ok: false, error: 'audio_not_uploaded' }, { status: 409 })
+      }
+      await mergeSessionArtifacts(sessionId, {
+        artifacts: { session_audio: stored.url },
+        durationMs: typeof duration_ms === 'number' ? duration_ms : undefined,
+      })
+      logRouteEvent('log', 'save-session-audio:direct:success', {
+        sessionId,
+        path,
+        bytes: stored.size,
+        durationMs: duration_ms ?? null,
+      })
+      return NextResponse.json({ ok: true, url: stored.url, durationMs: duration_ms ?? null })
+    }
+    if (!audio) {
+      return NextResponse.json({ ok: false, error: 'missing_audio' }, { status: 400 })
+    }
+
     logRouteEvent('log', 'save-session-audio:request:validated', {
       sessionId,
       mime,

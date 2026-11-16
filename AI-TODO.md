@@ -66,7 +66,7 @@ had been reachable since the Mar 24 deploy.
 - [x] The HTML branch reads the same `outcome.value`, so it is covered by the same change.
 - [x] Verified against a running server: 179 variables returned, zero raw secrets in the
       body. Regression test in `tests/redact-env.test.ts`.
-- [ ] Audit sibling routes for the same leak: `app/api/diagnostics/{route,storage,supabase,session,smoke,hypotheses}.ts`.
+- [x] Audit sibling routes for the same leak: `app/api/diagnostics/{route,storage,supabase,session,smoke,hypotheses}.ts`.
 
 **Done when:** the keys are rotated *and* this returns only `set`-style descriptors:
 
@@ -87,15 +87,15 @@ URLs. Two requests from a stranger to someone's family history.
 
 A closed beta does not need real accounts. An invite-link cookie is enough.
 
-- [ ] Add `middleware.ts` matching `/api/:path*`, `/u/:path*`, `/history`, `/settings`,
+- [x] Add `middleware.ts` matching `/api/:path*`, `/u/:path*`, `/history`, `/settings`,
       `/diagnostics`, `/session/:path*`. Allow `/api/health` (unauthenticated liveness only,
       see P1-3) and static assets.
-- [ ] Issue a signed, `httpOnly`, `secure`, `sameSite=lax` cookie from an invite route.
+- [~] Issue a signed, `httpOnly`, `secure`, `sameSite=lax` cookie from an invite route.
       Bind it to one handle. Use a `Secret` from env; do not invent a new dependency —
       Node's `crypto.createHmac` is sufficient.
 - [ ] Reject any request whose cookie handle does not match the `handle` query param or
       `/u/[handle]` segment. Return 403, not a redirect, for `/api` routes.
-- [ ] Gate `GET /api/users` behind an operator flag; it should not be reachable by a
+- [x] Gate `GET /api/users` behind an operator flag; it should not be reachable by a
       storyteller at all.
 
 **Done when:** with no cookie, `curl -i "$APP/api/history?handle=anything"` returns 401/403
@@ -125,7 +125,7 @@ the table with `deleted_at` set.
 
 Three independent ceilings, all of which bite exactly when someone tells a good long story.
 
-- [ ] **Body size.** Audio is base64'd into a JSON field (`app/page.tsx:1453`, and the whole
+- [x] **Body size.** Audio is base64'd into a JSON field (`app/page.tsx:1453`, and the whole
       session recording at `app/page.tsx:1159-1170` → `/api/save-session-audio`). Vercel caps
       a serverless request body at 4.5 MB and base64 adds 33%. A long interview loses its
       master recording at finalize. Upload directly to Supabase Storage from the browser with
@@ -159,7 +159,7 @@ not close this item on a desktop Chrome test.
       move the grid to `/diagnostics` where an operator asks for it deliberately.
 - [x] `app/api/tts/route.ts` accepts `z.string().min(1)` with no maximum and no auth —
       unbounded OpenAI billing from a single caller. Add `.max(2000)` and put it behind P0-2.
-- [ ] There is no rate limiting anywhere in the app. Add a simple per-handle limit on
+- [x] There is no rate limiting anywhere in the app. Add a simple per-handle limit on
       `ask-audio`, `tts` and `upload`.
 
 **Done when:** loading `/` fires zero requests to any paid provider (check the network
@@ -215,9 +215,9 @@ SUPABASE_SESSIONS_TABLE to the correct Supabase table…"*
 
 - [ ] Every user-facing error gets one plain sentence and one action. Technical detail goes
       to the log and `/diagnostics`, never the hero.
-- [ ] Strip `[diagnostic]` console logging from client bundles in production. It currently
+- [x] Strip `[diagnostic]` console logging from client bundles in production. It currently
       prints env summaries and internal hypotheses to every visitor's browser console.
-- [ ] `app/settings/page.tsx` throws when `NEXT_PUBLIC_DEFAULT_NOTIFY_EMAIL` is unset,
+- [x] `app/settings/page.tsx` throws when `NEXT_PUBLIC_DEFAULT_NOTIFY_EMAIL` is unset,
       white-screening the route with "Application error: a client-side exception has
       occurred". Add an error boundary and a sensible default.
 - [x] The footer shows "missing — commit message unavailable" to end users. Hide it when
@@ -230,9 +230,9 @@ verify Supabase bucket dadsbot: fetch failed", and "Clear all history". None of 
 belong in front of a family.
 
 - [ ] Move the fixer, metrics and storage errors to `/diagnostics`.
-- [ ] Gate `/diagnostics`, `/api/diagnostics/*`, `/api/debug/*`, `/api/maintenance` and
+- [x] Gate `/diagnostics`, `/api/diagnostics/*`, `/api/debug/*`, `/api/maintenance` and
       `/api/history/fixer` behind an operator check.
-- [ ] `/api/health` returns full stack traces. Make it return `{ok, status}` only and move
+- [x] `/api/health` returns full stack traces. Make it return `{ok, status}` only and move
       the detail behind the operator gate.
 
 ### P1-4 · Prove you cannot lose a story
@@ -246,7 +246,7 @@ belong in front of a family.
 - [ ] `npm audit` reports 35 advisories, 2 critical. `next@14.2.5` is a year old and
       carries a cache-poisoning advisory. Upgrade Next and re-run the full E2E path;
       treat this as its own PR.
-- [ ] `@sendgrid/mail@7` pulls a vulnerable `axios`. Either upgrade or drop SendGrid —
+- [x] `@sendgrid/mail@7` pulls a vulnerable `axios`. Either upgrade or drop SendGrid —
       `resend` is already a dependency and only one mailer is needed.
 
 ---
@@ -305,6 +305,36 @@ how you reproduced it.
   7:1, enlarged the primary control, gave every button a 48px target, rewrote hero
   and error copy in plain language, folded technical detail behind a disclosure, and
   hid the History Fixer / Database Metrics panels behind `?operator=1`.
+- **Swat pass, 16 Nov 2026 (branch `claude/swat-pass`).** What changed and what it
+  does *not* close:
+  - **P0-2 is partly closed.** There are now two doors (`middleware.ts`,
+    `lib/access-gate.ts`): a shared family word for the app and `OPERATOR_TOKEN`
+    for diagnostics, debug, the user list and the fixer. The cookie is **not bound
+    to one handle** — anyone with the family word can still read any handle's
+    history by name. That is acceptable for one household and not for two. The
+    "cookie handle must match the `handle` param" item stays open.
+  - The default family word is committed (hashed) to a public repo. Set
+    `ACCESS_KEYWORD` in the host environment; until then the family door is a
+    courtesy. The operator door has no default and fails closed.
+  - **P0-4 body size:** the session recording now uploads straight to storage
+    with a signed URL (`/api/session-audio/upload-url`, `lib/save-session-recording.ts`),
+    falling back to the inline route only under 3 MB. Covered by unit tests with a
+    fake `fetch`; **not yet run against real Supabase or a physical iPhone**, so the
+    P0-4 "Done when" is still unmet. Per-turn audio is capped at 90 s by
+    `HARD_TURN_LIMIT_MS`, which fits under the body limit at any browser bitrate.
+  - Rate limiting is in-memory per instance (`lib/rate-limit.ts`). Good enough to
+    stop a loop; a shared store is the next step if the beta widens.
+  - `next` moved 14.2.5 → 14.2.35 and `@sendgrid/mail` was replaced by one `fetch`
+    (`lib/email.ts`). `npm audit` went 45 → 27; the remaining Next advisories need
+    the 15.x major upgrade, which is still its own PR (P1-5).
+  - `/api/health` returns `{ok,status,checks}` only. `/diagnostics` reads the new shape.
+  - `readDefaultNotifyEmailClient` no longer throws; `app/error.tsx` catches the rest.
+  - The standalone `/history` and `/settings` pages had no navigation back to the
+    recorder. `SiteNav` existed but was never rendered; it is now in the header.
+  - **Still open, in order:** rotate the leaked keys (human); bind the cookie to a
+    handle; soft delete (needs a `deleted_at` migration); a real-iPhone 20-minute
+    run; nightly export + rehearsed restore (P1-4); Next 15 upgrade; per-handle
+    hydration (P2-1); teach the auto-push script to run `ci-check`.
 
 ---
 

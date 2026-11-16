@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { rateLimitResponse } from '@/lib/rate-limit'
 import { listSessions, mergeSessionArtifacts } from '@/lib/data'
 import { primeNetlifyBlobContextFromHeaders } from '@/lib/blob'
 import { getDigest, updateDigestAfterSession } from '@/lib/conversation-digest'
@@ -12,7 +13,12 @@ import { generateSessionTitle, SummarizableTurn } from '@/lib/session-title'
  *
  * Called automatically when the history page loads.
  */
+// Each run can make up to ten model calls, and the home page fires one on load.
+const MAINTENANCE_LIMIT = { name: 'maintenance', limit: 12, windowMs: 10 * 60 * 1000 }
+
 export async function POST(req: NextRequest) {
+  const limited = rateLimitResponse(MAINTENANCE_LIMIT, req)
+  if (limited) return limited
   primeNetlifyBlobContextFromHeaders(req.headers)
 
   let body: { handle?: string | null } = {}

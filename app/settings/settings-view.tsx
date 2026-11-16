@@ -73,7 +73,17 @@ export function SettingsView({ userHandle }: SettingsViewProps) {
         )}
         <div className="settings-field">
           <label htmlFor="notify-email">Where should we send your stories?</label>
-          <input id="notify-email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input
+            id="notify-email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            placeholder="name@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
         </div>
         <label className="settings-checkbox">
           <input
@@ -97,7 +107,9 @@ export function SettingsView({ userHandle }: SettingsViewProps) {
           >
             Save
           </button>
-          {saved && <span className="status-note">Saved.</span>}
+          <span className="status-note" role="status" aria-live="polite">
+            {saved ? 'Saved.' : ''}
+          </span>
         </div>
       </div>
     </main>

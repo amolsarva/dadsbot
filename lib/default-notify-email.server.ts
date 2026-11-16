@@ -58,6 +58,5 @@ export function buildDefaultNotifyEmailBootstrapScript(): string {
   log('log', 'default-email:bootstrap-script:emit', { emailPreview: masked })
   const globalKey = JSON.stringify(DEFAULT_NOTIFY_EMAIL_GLOBAL_KEY)
   const emailLiteral = JSON.stringify(email)
-  const maskedLiteral = JSON.stringify(masked)
-  return `(() => {\n  const step = 'default-email:bootstrap:apply'\n  const now = new Date().toISOString()\n  const summary = typeof window === 'undefined'\n    ? { origin: '__no_window__', pathname: '__no_window__' }\n    : { origin: window.location.origin, pathname: window.location.pathname }\n  const email = ${emailLiteral}\n  const key = ${globalKey}\n  window[key] = email\n  const payload = { source: 'server-inline-script', emailPreview: ${maskedLiteral}, summary }\n  console.log('[diagnostic] ' + now + ' ' + step + ' ' + JSON.stringify(payload))\n  window.dispatchEvent(new CustomEvent('default-notify-email:ready', { detail: { email } }))\n})()`
+  return `(() => {\n  const email = ${emailLiteral}\n  window[${globalKey}] = email\n  window.dispatchEvent(new CustomEvent('default-notify-email:ready', { detail: { email } }))\n})()`
 }

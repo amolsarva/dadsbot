@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { synthesizeSpeechWithOpenAi } from '@/lib/openaiTts'
+import { rateLimitResponse } from '@/lib/rate-limit'
 
 // Long-running: transcription, storage writes and email can exceed the
 // platform default, which truncates the request mid-write.
@@ -19,7 +20,11 @@ const schema = z.object({
   speed: z.number().positive().max(4).optional(),
 })
 
+const TTS_LIMIT = { name: 'tts', limit: 90, windowMs: 10 * 60 * 1000 }
+
 export async function POST(request: NextRequest) {
+  const limited = rateLimitResponse(TTS_LIMIT, request)
+  if (limited) return limited
   try {
     const body = await request.json()
     const { text, voice, format = 'mp3', model, speed } = schema.parse(body)

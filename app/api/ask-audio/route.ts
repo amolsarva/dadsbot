@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { rateLimitResponse } from '@/lib/rate-limit'
 import { ensureSessionMemoryHydrated, getMemoryPrimer, getSessionMemorySnapshot } from '@/lib/data'
 import { primeNetlifyBlobContextFromHeaders } from '@/lib/blob'
 import {
@@ -286,7 +287,14 @@ async function buildMemoryPrompt(sessionId: string | undefined): Promise<MemoryP
   }
 }
 
+// A spoken turn takes at least several seconds, so a real conversation cannot
+// approach this. It exists to stop a looping client or an abusive caller from
+// running up the model bill.
+const TURN_LIMIT = { name: 'ask-audio', limit: 60, windowMs: 10 * 60 * 1000 }
+
 export async function POST(req: NextRequest) {
+  const limited = rateLimitResponse(TURN_LIMIT, req)
+  if (limited) return limited
   primeNetlifyBlobContextFromHeaders(req.headers)
   const url = new URL(req.url)
   const providerQuery = url.searchParams.get('provider')

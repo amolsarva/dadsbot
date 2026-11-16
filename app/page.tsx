@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { useInterviewMachine } from '@/lib/machine'
+import { saveSessionRecording } from '@/lib/save-session-recording'
 import { calibrateRMS, recordUntilSilence, blobToBase64, formatFromMimeType } from '@/lib/audio-bridge'
 import { createSessionRecorder, SessionRecorder } from '@/lib/session-recorder'
 import { SummarizableTurn } from '@/lib/session-title'
@@ -1152,28 +1153,21 @@ export function Home({ userHandle }: { userHandle?: string }) {
         try {
           const recording = await recorderRef.current.stop()
           recorderRef.current = null
-          const base64 = await blobToBase64(recording.blob)
           sessionAudioDurationMs = recording.durationMs
-          if (base64) {
-            const saveRes = await fetch('/api/save-session-audio', {
-              method: 'POST',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({
-                sessionId,
-                audio: base64,
-                mime: recording.mimeType || 'audio/webm',
-                duration_ms: recording.durationMs,
-              }),
-            })
-            const saveJson = await saveRes.json().catch(() => null)
-            if (saveRes.ok && saveJson?.ok) {
-              sessionAudioUrl = typeof saveJson.url === 'string' ? saveJson.url : null
-              if (typeof saveJson?.durationMs === 'number') {
-                sessionAudioDurationMs = saveJson.durationMs
-              }
-            } else {
-              pushLog('Failed to store session audio')
+          const saved = await saveSessionRecording({
+            sessionId,
+            blob: recording.blob,
+            mimeType: recording.mimeType || 'audio/webm',
+            durationMs: recording.durationMs,
+          })
+          if (saved.ok) {
+            sessionAudioUrl = saved.url
+            if (typeof saved.durationMs === 'number') {
+              sessionAudioDurationMs = saved.durationMs
             }
+            if (saved.via === 'inline') pushLog('Session audio stored via inline fallback')
+          } else {
+            pushLog(`Failed to store session audio (${saved.reason})`)
           }
         } catch (err) {
           pushLog('Session audio capture failed')

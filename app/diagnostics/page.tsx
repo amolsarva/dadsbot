@@ -88,8 +88,8 @@ export default function DiagnosticsPage() {
 
         // Extract useful info based on service type
         if (service.id === 'health' && data.ok) {
-          const env = data.env || {}
-          message = `OpenAI: ${env.hasOpenAI ? '✓' : '✗'} | Storage: ${env.storageProvider || 'none'} | Emails: ${env.emailsEnabled ? '✓' : '✗'}`
+          const checks = data.checks || {}
+          message = `Storage: ${checks.storage ? '✓' : '✗'} | Database: ${checks.database ? '✓' : '✗'}`
         } else if (service.id === 'google' && data.ok) {
           message = `Model: ${data.model?.name || data.model || 'gemini'}`
         } else if (service.id === 'openai' && data.ok) {
