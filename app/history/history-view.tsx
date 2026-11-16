@@ -576,8 +576,7 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
           <div className="history-empty">
             <p className="font-medium">No interviews yet.</p>
             <p className="mt-1">
-              Run a session from the home page. Your completed
-              interviews will appear here once they are saved.
+              Press Talk to record your first story. It will appear here once it is saved.
             </p>
           </div>
         ) : (
@@ -739,7 +738,7 @@ export function HistoryView({ userHandle, onSessionsLoaded }: HistoryViewProps) 
                 </button>
               </div>
             </div>
-          ) : (
+          ) : rows.length === 0 ? null : (
             <button
               type="button"
               onClick={() => {

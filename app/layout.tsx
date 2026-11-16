@@ -1,4 +1,5 @@
 import './globals.css'
+import { SiteNav } from './site-nav'
 import React from 'react'
 import type { Metadata } from 'next'
 import { buildDefaultNotifyEmailBootstrapScript } from '@/lib/default-notify-email.server'
@@ -45,11 +46,9 @@ function tryBuildDefaultEmailBootstrapScript() {
         ? { name: error.name, message: error.message }
         : { message: 'unknown_error' }
     log('error', 'default-email:bootstrap:skipped', { error: errorPayload })
-    const clientNotice =
-      "(() => {const now = new Date().toISOString(); const payload = { reason: 'missing_default_notify_email', envSummary: " +
-      `JSON.stringify(${JSON.stringify(envSummary())}) }; ` +
-      "console.error('[diagnostic] ' + now + ' default-email:bootstrap:client-missing ' + JSON.stringify(payload));})();"
-    return clientNotice
+    // Logged on the server above. Visitors' browser consoles are not the
+    // place for deployment diagnostics, so the page gets no script at all.
+    return ''
   }
 }
 
@@ -98,6 +97,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="site-shell">
           <header className="site-header">
             <h1 className="site-title">DadsBot</h1>
+            <SiteNav />
           </header>
           <div className="panel-section">{children}</div>
           {/* Build provenance is for whoever deploys the app, not the family

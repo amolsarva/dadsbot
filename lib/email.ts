@@ -93,9 +93,7 @@ export async function sendSummaryEmail(to: string, subject: string, body: string
 
   if (process.env.SENDGRID_API_KEY) {
     try {
-      const sg = require('@sendgrid/mail')
-      sg.setApiKey(process.env.SENDGRID_API_KEY)
-      await sg.send({ to, from, subject, text: body })
+      await sendViaSendGrid({ apiKey: process.env.SENDGRID_API_KEY, to, from, subject, body })
       log('log', 'summary-email:dispatch:success', { provider: 'sendgrid', toPreview: maskEmail(to) })
       return { ok: true, provider: 'sendgrid' }
     } catch (e:any) {
@@ -112,4 +110,38 @@ export async function sendSummaryEmail(to: string, subject: string, body: string
     toPreview: maskEmail(to),
   })
   return { skipped: true }
+}
+
+/** `Dad's Bot <bot@example.com>` → `{ name, email }`; a bare address passes through. */
+export function parseMailAddress(value: string): { email: string; name?: string } {
+  const match = /^\s*(.*?)\s*<([^<>]+)>\s*$/.exec(value)
+  if (!match) return { email: value.trim() }
+  const name = match[1].replace(/^"|"$/g, '').trim()
+  return name ? { email: match[2].trim(), name } : { email: match[2].trim() }
+}
+
+/**
+ * SendGrid's v3 HTTP API, called directly. The `@sendgrid/mail` package was
+ * removed because it pinned a vulnerable `axios`, and one POST does not need a
+ * client library.
+ */
+async function sendViaSendGrid(input: { apiKey: string; to: string; from: string; subject: string; body: string }) {
+  const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${input.apiKey}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      personalizations: [{ to: [{ email: input.to }] }],
+      from: parseMailAddress(input.from),
+      subject: input.subject,
+      content: [{ type: 'text/plain', value: input.body }],
+    }),
+    signal: AbortSignal.timeout(15_000),
+  })
+  if (!response.ok) {
+    const detail = (await response.text().catch(() => '')).slice(0, 300)
+    throw new Error(`sendgrid_http_${response.status}${detail ? `: ${detail}` : ''}`)
+  }
 }

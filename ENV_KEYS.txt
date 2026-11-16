@@ -1,3 +1,6 @@
 - SUPABASE_URL: required for Supabase client initialization.
 - SUPABASE_SERVICE_ROLE_KEY: required for Supabase storage access; service role recommended.
 - SUPABASE_STORAGE_BUCKET: required bucket name for storing artifacts.
+- ACCESS_KEYWORD: recommended. The family word typed at /enter (case-insensitive). Without it a default committed to this public repo applies.
+- OPERATOR_TOKEN: recommended, 12+ characters. Unlocks /diagnostics and the operator API routes. Unset means those routes are closed to everyone.
+- ACCESS_COOKIE_SECRET: optional. Signing key for the family cookie; derived from the word when unset.

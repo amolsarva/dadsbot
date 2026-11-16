@@ -247,6 +247,44 @@ export async function putBlobFromBuffer(
   }
 }
 
+/**
+ * Issue a short-lived URL the browser can upload one object to directly.
+ *
+ * Large recordings cannot go through an API route: the host caps a serverless
+ * request body (4.5 MB on Vercel) and base64 inflates audio by a third, so a
+ * long interview used to lose its master recording at the very end. With a
+ * signed URL the bytes go from the browser straight to storage and the app is
+ * only told where they landed.
+ */
+export async function createSignedUploadTarget(path: string) {
+  const targetPath = normalizePath(path)
+  const { client, bucket } = getClientAndBucket()
+  const { data } = await executeWithRecovery('signed-upload-url', bucket, targetPath, () =>
+    client.storage.from(bucket).createSignedUploadUrl(targetPath, { upsert: true }),
+  )
+  const signedUrl = (data as { signedUrl?: string } | null)?.signedUrl
+  if (!signedUrl) throw new Error('Storage did not return an upload URL')
+  logBlobDiagnostic('log', 'supabase-signed-upload:issued', { path: targetPath, bucket })
+  return { uploadUrl: signedUrl, pathname: targetPath }
+}
+
+/** Confirm an object exists and report its public URL and size. */
+export async function describeStoredBlob(path: string) {
+  const targetPath = normalizePath(path)
+  const { client, bucket } = getClientAndBucket()
+  const slash = targetPath.lastIndexOf('/')
+  const folder = slash >= 0 ? targetPath.slice(0, slash) : ''
+  const name = slash >= 0 ? targetPath.slice(slash + 1) : targetPath
+  const { data } = await executeWithRecovery('describe', bucket, targetPath, () =>
+    client.storage.from(bucket).list(folder, { limit: 100, search: name }),
+  )
+  const entry = (Array.isArray(data) ? data : []).find((item: any) => item?.name === name) as any
+  if (!entry) return null
+  const size = typeof entry?.metadata?.size === 'number' ? entry.metadata.size : null
+  const publicUrl = client.storage.from(bucket).getPublicUrl(targetPath).data.publicUrl
+  return { pathname: targetPath, url: publicUrl, size }
+}
+
 export async function listBlobs(options: ListCommandOptions = {}): Promise<ListBlobResult> {
   const { client, bucket } = getClientAndBucket()
   logBlobDiagnostic('log', 'supabase-list:start', { bucket, options })

@@ -11,6 +11,11 @@ type PlaybackResult = {
 // Safari/iOS cannot produce webm or ogg — MediaRecorder there emits audio/mp4.
 // Without an mp4 candidate the recorder fell through to the browser default and
 // the resulting bytes were then mislabelled downstream.
+// A whole interview is recorded as one file. Speech is perfectly clear at this
+// rate, and it keeps a 30-minute session near 15 MB instead of the 40+ MB some
+// browsers produce by default.
+const SESSION_AUDIO_BITS_PER_SECOND = 64_000
+
 const SUPPORTED_MIME_TYPES = [
   'audio/webm;codecs=opus',
   'audio/webm',
@@ -51,8 +56,8 @@ export class SessionRecorder {
     })
 
     const recorder = supportedMime
-      ? new MediaRecorder(destination.stream, { mimeType: supportedMime })
-      : new MediaRecorder(destination.stream)
+      ? new MediaRecorder(destination.stream, { mimeType: supportedMime, audioBitsPerSecond: SESSION_AUDIO_BITS_PER_SECOND })
+      : new MediaRecorder(destination.stream, { audioBitsPerSecond: SESSION_AUDIO_BITS_PER_SECOND })
 
     this.audioCtx = ctx
     this.destination = destination

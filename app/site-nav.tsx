@@ -20,22 +20,24 @@ export function SiteNav() {
 
   const links = useMemo(
     () => [
-      { href: buildScopedPath('/', handle), label: 'Home' },
-      { href: buildScopedPath('/history', handle), label: 'History' },
+      { href: buildScopedPath('/', handle), label: 'Talk' },
+      { href: buildScopedPath('/history', handle), label: 'My stories' },
       { href: buildScopedPath('/settings', handle), label: 'Settings' },
     ],
     [handle],
   )
 
-  // Don't show site-nav on scoped routes (they have their own tabs now)
-  if (handle) {
+  // Scoped routes and the home screen have their own tabs, and the front door
+  // has nowhere to go yet. Everywhere else (the standalone history, settings
+  // and session pages) this is the only way back, so it must be there.
+  if (handle || pathname === '/' || pathname === '/enter') {
     return null
   }
 
   return (
-    <nav className="site-nav">
+    <nav className="site-nav" aria-label="Main">
       {links.map((link) => (
-        <Link key={link.label} href={link.href}>
+        <Link key={link.label} href={link.href} aria-current={pathname === link.href ? 'page' : undefined}>
           {link.label}
         </Link>
       ))}

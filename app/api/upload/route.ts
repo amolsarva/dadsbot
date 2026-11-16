@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { rateLimitResponse } from '@/lib/rate-limit'
 
 const ROUTE_NAME = 'app/api/upload'
 
@@ -67,7 +68,11 @@ const HYPOTHESES = [
   'The upload handler has not been configured for this deployment.',
 ]
 
+const UPLOAD_LIMIT = { name: 'upload', limit: 60, windowMs: 10 * 60 * 1000 }
+
 export async function POST(request: NextRequest) {
+  const limited = rateLimitResponse(UPLOAD_LIMIT, request)
+  if (limited) return limited
   log('log', 'hypotheses', { hypotheses: HYPOTHESES })
   log('log', 'request:received', {
     method: request.method,

@@ -28,6 +28,62 @@ DadsBot is a Next.js 14 app that captures long-form oral histories with warm, bi
   - **AWS Amplify Hosting + S3:** update `lib/blob.ts` for S3 and configure IAM roles explicitly.
   - **Fly.io + S3-compatible storage:** bring your own CI/CD; ensure storage env vars exist before boot.
 
+## Access gate
+
+Two doors, both enforced in `middleware.ts` (logic in `lib/access-gate.ts`).
+
+**The family door.** Anyone without a valid cookie is sent to `/enter`; API
+routes answer `401`.
+
+- The word is **case-insensitive** and whitespace is trimmed, so `Sarva`,
+  `sarva` and `  SARVA  ` all work.
+- **Set `ACCESS_KEYWORD` in the hosting environment to change the word.** That
+  is the recommended setup: the word then lives only in the environment.
+- With no `ACCESS_KEYWORD`, the committed default applies (a SHA-256 of an
+  ordinary word, overridable with `ACCESS_KEYWORD_HASH`). This repository is
+  public, so the default is recoverable by anyone who reads the source. It
+  keeps casual visitors out and nothing more.
+- Guesses are limited to 20 per 10 minutes per address.
+- The signed cookie lasts 180 days on purpose: re-typing a password is a real
+  barrier for an older storyteller. `ACCESS_COOKIE_SECRET` is optional.
+- `/enter`, `/api/access`, `/api/health`, `/sounds/*` and `/logo.svg` stay
+  reachable without the cookie.
+
+**The operator door.** `/diagnostics`, `/u/<handle>/diagnostics`,
+`/api/diagnostics/*`, `/api/debug/*`, `/api/users`, `/api/history/fixer` and
+`/api/history/metrics` need operator access as well, because they read across
+people, expose infrastructure detail, or make billable provider calls.
+
+- Set `OPERATOR_TOKEN` (12+ characters) in the hosting environment. **With no
+  token set these routes are closed to everyone.**
+- In a browser: open `/diagnostics`, and type the token at the prompt. The
+  operator cookie lasts 30 days.
+- From a script: send `x-operator-token: <token>` or `Authorization: Bearer <token>`.
+
+Rate limits (per address, per warm server instance): `ask-audio` 60 / 10 min,
+`tts` 90 / 10 min, `upload` 60 / 10 min, `maintenance` 12 / 10 min. They are a
+brake on a looping client, not a hard quota; see `lib/rate-limit.ts`.
+
+## ⚠️ Reminder: re-check API key usage
+
+`/api/diagnostics/env` disclosed raw environment variable values on a public URL
+from the Mar 24 deploy until it was patched on 7 Sep 2026. The keys were **not
+rotated** — the call was that usage showed no sign of anyone else using them,
+and Supabase auto-revokes service keys it detects leaked.
+
+Worth re-checking periodically, because the evidence so far does not cover
+everything:
+
+- [ ] **OpenAI** and **Google** usage dashboards — these were checked and were
+      clean. They would reveal anyone spending against those two keys.
+- [ ] **Supabase → Logs → API** — *not yet reviewed, and this is the gap.* A
+      stolen `SUPABASE_SERVICE_ROLE_KEY` used to **read** transcripts and audio
+      costs nothing and shows up in no billing dashboard. Supabase's request
+      logs are the only place that exfiltration would be visible.
+
+If anything looks unfamiliar, rotate `SUPABASE_SERVICE_ROLE_KEY`,
+`SUPABASE_ANON_KEY`, `GOOGLE_API_KEY`, `OPENAI_API_KEY` and `SENDGRID_API_KEY`.
+
 ## Environment variables
 - **Supabase storage:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET` (validated in `utils/blob-env.ts`).
 - **Supabase tables:** `SUPABASE_SESSIONS_TABLE` and `SUPABASE_TURNS_TABLE` are both **required** — neither has a default, and `/api/save-turn` rejects every turn when the turns table is unset. Client diagnostics expect `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET`, and `NEXT_PUBLIC_SUPABASE_TURNS_TABLE`.
